@@ -1,134 +1,100 @@
 'use client'
 
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  Marker,
-  Line,
-} from 'react-simple-maps'
+import { useEffect } from 'react'
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet'
+import L from 'leaflet'
 import type { Destination } from '@/lib/types'
 
-const GEO_URL =
-  'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
-
-type ProjectionConfig = {
-  scale: number
-  center: [number, number]
+function makeIcon(index: number) {
+  return L.divIcon({
+    html: `<div style="
+      background:#2d5a3d;color:#fff;
+      border:2.5px solid #fff;
+      border-radius:50%;
+      width:26px;height:26px;
+      display:flex;align-items:center;justify-content:center;
+      font:700 11px/1 Inter,sans-serif;
+      box-shadow:0 2px 6px rgba(0,0,0,.25);
+    ">${index}</div>`,
+    className: '',
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+    popupAnchor: [0, -16],
+  })
 }
 
-function getProjectionConfig(destinations: Destination[]): ProjectionConfig {
-  const mapped = destinations.filter((d) => d.lat != null && d.lng != null)
+function BoundsController({ destinations }: { destinations: Destination[] }) {
+  const map = useMap()
 
-  if (mapped.length === 0) {
-    return { scale: 147, center: [0, 10] }
-  }
+  useEffect(() => {
+    const pts = destinations.filter((d) => d.lat != null && d.lng != null)
+    if (pts.length === 0) return
+    if (pts.length === 1) {
+      map.setView([pts[0].lat!, pts[0].lng!], 10, { animate: true })
+      return
+    }
+    const bounds = L.latLngBounds(pts.map((d) => [d.lat!, d.lng!]))
+    map.fitBounds(bounds, { padding: [60, 60], animate: true, maxZoom: 12 })
+  }, [destinations, map])
 
-  if (mapped.length === 1) {
-    return { scale: 900, center: [mapped[0].lng!, mapped[0].lat!] }
-  }
-
-  const lats = mapped.map((d) => d.lat!)
-  const lngs = mapped.map((d) => d.lng!)
-
-  const minLat = Math.min(...lats)
-  const maxLat = Math.max(...lats)
-  const minLng = Math.min(...lngs)
-  const maxLng = Math.max(...lngs)
-
-  const centerLat = (minLat + maxLat) / 2
-  const centerLng = (minLng + maxLng) / 2
-
-  // Use the larger span, add padding, then map to scale
-  const span = Math.max(maxLat - minLat, maxLng - minLng)
-  const padded = span * 1.6 + 4
-
-  let scale: number
-  if (padded <= 4) scale = 1800
-  else if (padded <= 8) scale = 1100
-  else if (padded <= 15) scale = 700
-  else if (padded <= 25) scale = 450
-  else if (padded <= 40) scale = 300
-  else if (padded <= 70) scale = 200
-  else if (padded <= 120) scale = 160
-  else scale = 147
-
-  return { scale, center: [centerLng, centerLat] }
+  return null
 }
 
-type Props = {
-  destinations: Destination[]
-}
+type Props = { destinations: Destination[] }
 
 export default function WorldMap({ destinations }: Props) {
   const mapped = destinations.filter((d) => d.lat != null && d.lng != null)
-  const { scale, center } = getProjectionConfig(destinations)
+  const positions = mapped.map((d) => [d.lat!, d.lng!] as [number, number])
 
   return (
-    <div className="relative w-full rounded-xl overflow-hidden border border-border bg-accent-light">
-      <ComposableMap
-        projection="geoNaturalEarth1"
-        projectionConfig={{ scale, center }}
-        style={{ width: '100%', height: 'auto' }}
+    <div className="relative w-full h-[380px] rounded-xl overflow-hidden border border-border">
+      <MapContainer
+        center={[20, 0]}
+        zoom={2}
+        style={{ height: '100%', width: '100%' }}
+        zoomControl
+        scrollWheelZoom
       >
-        <Geographies geography={GEO_URL}>
-          {({ geographies }) =>
-            geographies.map((geo) => (
-              <Geography
-                key={geo.rsmKey}
-                geography={geo}
-                fill="#cdd5c4"
-                stroke="#f7f5f0"
-                strokeWidth={0.6}
-                style={{
-                  default: { outline: 'none' },
-                  hover: { outline: 'none' },
-                  pressed: { outline: 'none' },
-                }}
-              />
-            ))
-          }
-        </Geographies>
+        {/* Carto Positron — clean, warm-toned, no API key */}
+        <TileLayer
+          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+          subdomains="abcd"
+          maxZoom={19}
+        />
 
-        {mapped.slice(0, -1).map((d, i) => {
-          const next = mapped[i + 1]
-          return (
-            <Line
-              key={`route-${d.id}`}
-              from={[d.lng!, d.lat!]}
-              to={[next.lng!, next.lat!]}
-              stroke="#2d5a3d"
-              strokeWidth={1.8}
-              strokeDasharray="5 4"
-              strokeLinecap="round"
-            />
-          )
-        })}
+        <BoundsController destinations={destinations} />
+
+        {positions.length > 1 && (
+          <Polyline
+            positions={positions}
+            color="#2d5a3d"
+            weight={2.5}
+            dashArray="7 5"
+            opacity={0.85}
+          />
+        )}
 
         {mapped.map((d, i) => (
-          <Marker key={d.id} coordinates={[d.lng!, d.lat!]}>
-            <circle r={6} fill="#2d5a3d" stroke="#f7f5f0" strokeWidth={2} />
-            <text
-              textAnchor="middle"
-              y={-11}
-              style={{
-                fontFamily: 'Inter, system-ui, sans-serif',
-                fontSize: '9px',
-                fontWeight: 600,
-                fill: '#111111',
-                pointerEvents: 'none',
-              }}
-            >
-              {i + 1}. {d.name}
-            </text>
+          <Marker key={d.id} position={[d.lat!, d.lng!]} icon={makeIcon(i + 1)}>
+            <Popup>
+              <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 13, lineHeight: 1.4 }}>
+                <strong style={{ color: '#111' }}>{d.name}</strong>
+                {(d.arrival || d.departure) && (
+                  <div style={{ color: '#7a7a6e', marginTop: 3, fontSize: 11 }}>
+                    {[d.arrival, d.departure].filter(Boolean).join(' → ')}
+                  </div>
+                )}
+              </div>
+            </Popup>
           </Marker>
         ))}
-      </ComposableMap>
+      </MapContainer>
 
       {destinations.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <p className="font-mono text-xs text-muted bg-cream/80 px-3 py-1.5 rounded-full">
-            Add destinations to visualise the route
+        <div className="absolute inset-0 flex items-end justify-center pb-5 pointer-events-none z-10">
+          <p className="font-mono text-xs text-muted bg-cream/90 px-3 py-1.5 rounded-full border border-border">
+            Add stops to see the route
           </p>
         </div>
       )}
