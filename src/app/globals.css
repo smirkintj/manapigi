@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #f7f5f0;
+  --color-card: #fdfcf9;
+  --color-ink: #111111;
+  --color-muted: #7a7a6e;
+  --color-accent: #2d5a3d;
+  --color-accent-light: #eaf0eb;
+  --color-border: #e2dfd7;
+
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-instrument-serif);
+  --font-mono: var(--font-jetbrains);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: #f7f5f0;
+  color: #111111;
+}
+
+* {
+  box-sizing: border-box;
+}
