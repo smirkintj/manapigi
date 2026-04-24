@@ -4,20 +4,16 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Modal from '@/components/ui/Modal'
 
-const EMOJIS = ['✈️', '🗺️', '🏖️', '🏔️', '🌍', '🚂', '🛳️', '🏕️', '🌴', '🗼', '🎡', '🍜']
-
 export default function NewTripButton() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [emoji, setEmoji] = useState('✈️')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
   const reset = () => {
     setName('')
     setDescription('')
-    setEmoji('✈️')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,7 +23,7 @@ export default function NewTripButton() {
     const res = await fetch('/api/trips', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim(), description: description.trim() || null, coverEmoji: emoji }),
+      body: JSON.stringify({ name: name.trim(), description: description.trim() || null }),
     })
     const trip = await res.json()
     setLoading(false)
@@ -47,26 +43,6 @@ export default function NewTripButton() {
 
       <Modal open={open} onClose={() => { setOpen(false); reset() }} title="New trip">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="font-mono text-xs text-muted block mb-2">Pick an emoji</label>
-            <div className="flex flex-wrap gap-2">
-              {EMOJIS.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  onClick={() => setEmoji(e)}
-                  className={`text-xl w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-                    emoji === e
-                      ? 'bg-accent-light border-2 border-accent'
-                      : 'border border-border hover:bg-cream'
-                  }`}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div>
             <label className="font-mono text-xs text-muted block mb-1.5">Trip name *</label>
             <input

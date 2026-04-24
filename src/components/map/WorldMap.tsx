@@ -12,18 +12,63 @@ import type { Destination } from '@/lib/types'
 const GEO_URL =
   'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
 
+type ProjectionConfig = {
+  scale: number
+  center: [number, number]
+}
+
+function getProjectionConfig(destinations: Destination[]): ProjectionConfig {
+  const mapped = destinations.filter((d) => d.lat != null && d.lng != null)
+
+  if (mapped.length === 0) {
+    return { scale: 147, center: [0, 10] }
+  }
+
+  if (mapped.length === 1) {
+    return { scale: 900, center: [mapped[0].lng!, mapped[0].lat!] }
+  }
+
+  const lats = mapped.map((d) => d.lat!)
+  const lngs = mapped.map((d) => d.lng!)
+
+  const minLat = Math.min(...lats)
+  const maxLat = Math.max(...lats)
+  const minLng = Math.min(...lngs)
+  const maxLng = Math.max(...lngs)
+
+  const centerLat = (minLat + maxLat) / 2
+  const centerLng = (minLng + maxLng) / 2
+
+  // Use the larger span, add padding, then map to scale
+  const span = Math.max(maxLat - minLat, maxLng - minLng)
+  const padded = span * 1.6 + 4
+
+  let scale: number
+  if (padded <= 4) scale = 1800
+  else if (padded <= 8) scale = 1100
+  else if (padded <= 15) scale = 700
+  else if (padded <= 25) scale = 450
+  else if (padded <= 40) scale = 300
+  else if (padded <= 70) scale = 200
+  else if (padded <= 120) scale = 160
+  else scale = 147
+
+  return { scale, center: [centerLng, centerLat] }
+}
+
 type Props = {
   destinations: Destination[]
 }
 
 export default function WorldMap({ destinations }: Props) {
   const mapped = destinations.filter((d) => d.lat != null && d.lng != null)
+  const { scale, center } = getProjectionConfig(destinations)
 
   return (
     <div className="relative w-full rounded-xl overflow-hidden border border-border bg-accent-light">
       <ComposableMap
         projection="geoNaturalEarth1"
-        projectionConfig={{ scale: 140, center: [0, 10] }}
+        projectionConfig={{ scale, center }}
         style={{ width: '100%', height: 'auto' }}
       >
         <Geographies geography={GEO_URL}>

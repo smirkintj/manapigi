@@ -57,7 +57,6 @@ export default function TripDetailClient({ initialTrip }: Props) {
             ← trips
           </Link>
           <span className="text-border">·</span>
-          <span className="text-xl">{trip.coverEmoji}</span>
 
           {editingName ? (
             <input
