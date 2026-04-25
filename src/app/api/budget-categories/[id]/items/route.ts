@@ -7,11 +7,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const { label, amount } = await req.json()
+  const { label, amount, itemCurrency } = await req.json()
 
   const [item] = await db
     .insert(budgetItems)
-    .values({ categoryId: id, label, amount: parseFloat(amount) || 0 })
+    .values({ categoryId: id, label, amount: parseFloat(amount) || 0, itemCurrency: itemCurrency ?? null })
     .returning()
 
   return NextResponse.json(item, { status: 201 })

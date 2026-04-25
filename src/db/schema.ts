@@ -16,6 +16,7 @@ export const trips = pgTable('trips', {
   coverEmoji: text('cover_emoji').default('✈️'),
   shareToken: text('share_token').notNull().unique(),
   notes: text('notes'),
+  currency: text('currency').default('MYR').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
@@ -32,6 +33,7 @@ export const destinations = pgTable('destinations', {
   arrival: text('arrival'),
   departure: text('departure'),
   notes: text('notes'),
+  transportMode: text('transport_mode'), // how you travel TO this stop
   order: integer('order').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
@@ -66,13 +68,52 @@ export const budgetItems = pgTable('budget_items', {
     .references(() => budgetCategories.id, { onDelete: 'cascade' }),
   label: text('label').notNull(),
   amount: real('amount').notNull().default(0),
+  itemCurrency: text('item_currency'), // null = use trip currency
   paid: boolean('paid').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+export const travelers = pgTable('travelers', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tripId: uuid('trip_id')
+    .notNull()
+    .references(() => trips.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  order: integer('order').notNull().default(0),
+})
+
+export const accommodations = pgTable('accommodations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tripId: uuid('trip_id')
+    .notNull()
+    .references(() => trips.id, { onDelete: 'cascade' }),
+  destinationId: uuid('destination_id').references(() => destinations.id, {
+    onDelete: 'set null',
+  }),
+  name: text('name').notNull(),
+  type: text('type').default('hotel'), // hotel | airbnb | hostel | guesthouse | other
+  checkIn: text('check_in'),
+  checkOut: text('check_out'),
+  order: integer('order').notNull().default(0),
+})
+
+export const accommodationRooms = pgTable('accommodation_rooms', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  accommodationId: uuid('accommodation_id')
+    .notNull()
+    .references(() => accommodations.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  guests: text('guests'), // comma-separated names
+  price: real('price').default(0),
+})
+
+// ── Relations ──────────────────────────────────────────────────────────────
+
 export const tripsRelations = relations(trips, ({ many }) => ({
   destinations: many(destinations),
   budgetCategories: many(budgetCategories),
+  travelers: many(travelers),
+  accommodations: many(accommodations),
 }))
 
 export const destinationsRelations = relations(destinations, ({ one, many }) => ({
@@ -96,5 +137,21 @@ export const budgetItemsRelations = relations(budgetItems, ({ one }) => ({
   category: one(budgetCategories, {
     fields: [budgetItems.categoryId],
     references: [budgetCategories.id],
+  }),
+}))
+
+export const travelersRelations = relations(travelers, ({ one }) => ({
+  trip: one(trips, { fields: [travelers.tripId], references: [trips.id] }),
+}))
+
+export const accommodationsRelations = relations(accommodations, ({ one, many }) => ({
+  trip: one(trips, { fields: [accommodations.tripId], references: [trips.id] }),
+  rooms: many(accommodationRooms),
+}))
+
+export const accommodationRoomsRelations = relations(accommodationRooms, ({ one }) => ({
+  accommodation: one(accommodations, {
+    fields: [accommodationRooms.accommodationId],
+    references: [accommodations.id],
   }),
 }))

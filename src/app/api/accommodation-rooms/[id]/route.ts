@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { budgetItems } from '@/db/schema'
+import { accommodationRooms } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 export async function PUT(
@@ -8,15 +8,15 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const { label, amount, paid, itemCurrency } = await req.json()
+  const { name, guests, price } = await req.json()
 
-  const [item] = await db
-    .update(budgetItems)
-    .set({ label, amount: parseFloat(amount) || 0, paid, itemCurrency: itemCurrency ?? null })
-    .where(eq(budgetItems.id, id))
+  const [room] = await db
+    .update(accommodationRooms)
+    .set({ name, guests, price: parseFloat(price) || 0 })
+    .where(eq(accommodationRooms.id, id))
     .returning()
 
-  return NextResponse.json(item)
+  return NextResponse.json(room)
 }
 
 export async function DELETE(
@@ -24,6 +24,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  await db.delete(budgetItems).where(eq(budgetItems.id, id))
+  await db.delete(accommodationRooms).where(eq(accommodationRooms.id, id))
   return NextResponse.json({ success: true })
 }

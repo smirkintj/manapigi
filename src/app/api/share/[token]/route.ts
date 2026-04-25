@@ -24,6 +24,13 @@ export async function GET(
         orderBy: (bc, { asc }) => [asc(bc.order)],
         with: { items: true },
       },
+      travelers: {
+        orderBy: (t, { asc }) => [asc(t.order)],
+      },
+      accommodations: {
+        orderBy: (a, { asc }) => [asc(a.order)],
+        with: { rooms: true },
+      },
     },
   })
 

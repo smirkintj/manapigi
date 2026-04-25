@@ -106,8 +106,10 @@ export default function ShareViewClient({ trip }: Props) {
         {active === 'Budget' && (
           <BudgetTab
             tripId={trip.id}
+            tripCurrency={trip.currency ?? 'MYR'}
             categories={trip.budgetCategories ?? []}
             onUpdate={() => {}}
+            onCurrencyChange={() => {}}
           />
         )}
         {active === 'Notes' && (

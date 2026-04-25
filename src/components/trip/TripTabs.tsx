@@ -6,30 +6,35 @@ import type { Trip } from '@/lib/types'
 import ItineraryTab from './ItineraryTab'
 import BudgetTab from './BudgetTab'
 import NotesTab from './NotesTab'
+import StayTab from './StayTab'
+import { formatDate } from '@/lib/utils'
 
 const WorldMap = dynamic(() => import('@/components/map/WorldMap'), { ssr: false })
 
-const TABS = ['Map', 'Itinerary', 'Budget', 'Notes'] as const
+const TABS = ['Map', 'Itinerary', 'Budget', 'Stay', 'Notes'] as const
 type Tab = (typeof TABS)[number]
 
 type Props = {
   trip: Trip
   onUpdate: () => void
+  onCurrencyChange?: (c: string) => void
   readOnly?: boolean
 }
 
-export default function TripTabs({ trip, onUpdate, readOnly = false }: Props) {
+export default function TripTabs({ trip, onUpdate, onCurrencyChange, readOnly = false }: Props) {
   const [active, setActive] = useState<Tab>('Map')
+
+  const noop = () => {}
 
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar */}
-      <div className="flex items-center gap-0 border-b border-border px-6 shrink-0">
+      <div className="flex items-center gap-0 border-b border-border px-6 shrink-0 overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab}
             onClick={() => setActive(tab)}
-            className={`font-mono text-xs uppercase tracking-wider px-4 py-3 border-b-2 transition-colors ${
+            className={`font-mono text-xs uppercase tracking-wider px-4 py-3 border-b-2 whitespace-nowrap transition-colors ${
               active === tab
                 ? 'border-accent text-accent'
                 : 'border-transparent text-muted hover:text-ink'
@@ -40,10 +45,10 @@ export default function TripTabs({ trip, onUpdate, readOnly = false }: Props) {
         ))}
       </div>
 
-      {/* Tab content */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         {active === 'Map' && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <WorldMap destinations={trip.destinations ?? []} />
             {(trip.destinations ?? []).length > 0 && (
               <div className="flex flex-wrap gap-2">
@@ -52,12 +57,12 @@ export default function TripTabs({ trip, onUpdate, readOnly = false }: Props) {
                     key={d.id}
                     className="flex items-center gap-2 border border-border rounded-full px-3 py-1.5 bg-card"
                   >
-                    <span className="w-4 h-4 rounded-full bg-accent text-cream font-mono text-[9px] flex items-center justify-center font-bold">
+                    <span className="w-[18px] h-[18px] rounded-full bg-accent text-cream font-mono text-[9px] flex items-center justify-center font-bold shrink-0">
                       {i + 1}
                     </span>
                     <span className="text-sm text-ink">{d.name}</span>
                     {d.arrival && (
-                      <span className="font-mono text-xs text-muted">{d.arrival}</span>
+                      <span className="font-mono text-xs text-muted">{formatDate(d.arrival)}</span>
                     )}
                   </div>
                 ))}
@@ -67,19 +72,30 @@ export default function TripTabs({ trip, onUpdate, readOnly = false }: Props) {
         )}
 
         {active === 'Itinerary' && (
-          <ItineraryTab destinations={trip.destinations ?? []} onUpdate={readOnly ? () => {} : onUpdate} />
+          <ItineraryTab destinations={trip.destinations ?? []} onUpdate={readOnly ? noop : onUpdate} />
         )}
 
         {active === 'Budget' && (
           <BudgetTab
             tripId={trip.id}
+            tripCurrency={trip.currency ?? 'MYR'}
             categories={trip.budgetCategories ?? []}
-            onUpdate={readOnly ? () => {} : onUpdate}
+            onUpdate={readOnly ? noop : onUpdate}
+            onCurrencyChange={readOnly ? noop : (onCurrencyChange ?? noop)}
+          />
+        )}
+
+        {active === 'Stay' && (
+          <StayTab
+            tripId={trip.id}
+            accommodations={trip.accommodations ?? []}
+            destinations={trip.destinations ?? []}
+            onUpdate={readOnly ? noop : onUpdate}
           />
         )}
 
         {active === 'Notes' && (
-          <NotesTab tripId={trip.id} notes={trip.notes} onUpdate={readOnly ? () => {} : onUpdate} />
+          <NotesTab tripId={trip.id} notes={trip.notes} onUpdate={readOnly ? noop : onUpdate} />
         )}
       </div>
     </div>

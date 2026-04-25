@@ -24,6 +24,13 @@ export async function GET(
         orderBy: (bc, { asc }) => [asc(bc.order)],
         with: { items: true },
       },
+      travelers: {
+        orderBy: (t, { asc }) => [asc(t.order)],
+      },
+      accommodations: {
+        orderBy: (a, { asc }) => [asc(a.order)],
+        with: { rooms: true },
+      },
     },
   })
 
@@ -36,11 +43,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const { name, description, coverEmoji, notes } = await req.json()
+  const { name, description, coverEmoji, notes, currency } = await req.json()
 
   const [trip] = await db
     .update(trips)
-    .set({ name, description, coverEmoji, notes, updatedAt: new Date() })
+    .set({ name, description, coverEmoji, notes, currency, updatedAt: new Date() })
     .where(eq(trips.id, id))
     .returning()
 

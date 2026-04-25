@@ -7,11 +7,7 @@ import type { Trip } from '@/lib/types'
 import DestinationSidebar from '@/components/trip/DestinationSidebar'
 import TripTabs from '@/components/trip/TripTabs'
 
-type Props = {
-  initialTrip: Trip
-}
-
-export default function TripDetailClient({ initialTrip }: Props) {
+export default function TripDetailClient({ initialTrip }: { initialTrip: Trip }) {
   const [trip, setTrip] = useState<Trip>(initialTrip)
   const [editingName, setEditingName] = useState(false)
   const [name, setName] = useState(trip.name)
@@ -20,8 +16,7 @@ export default function TripDetailClient({ initialTrip }: Props) {
 
   const refreshTrip = async () => {
     const res = await fetch(`/api/trips/${trip.id}`)
-    const updated = await res.json()
-    setTrip(updated)
+    setTrip(await res.json())
   }
 
   const saveName = async () => {
@@ -29,7 +24,7 @@ export default function TripDetailClient({ initialTrip }: Props) {
     await fetch(`/api/trips/${trip.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim(), description: trip.description, coverEmoji: trip.coverEmoji, notes: trip.notes }),
+      body: JSON.stringify({ name: name.trim(), description: trip.description, coverEmoji: trip.coverEmoji, notes: trip.notes, currency: trip.currency }),
     })
     setTrip((t) => ({ ...t, name: name.trim() }))
     setEditingName(false)
@@ -50,7 +45,6 @@ export default function TripDetailClient({ initialTrip }: Props) {
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Top header */}
       <header className="border-b border-border bg-cream/80 backdrop-blur-sm shrink-0">
         <div className="flex items-center gap-3 px-5 py-3">
           <Link href="/" className="font-mono text-xs text-muted hover:text-ink transition-colors">
@@ -64,7 +58,10 @@ export default function TripDetailClient({ initialTrip }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onBlur={saveName}
-              onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setName(trip.name); setEditingName(false) } }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveName()
+                if (e.key === 'Escape') { setName(trip.name); setEditingName(false) }
+              }}
               className="font-serif text-lg text-ink bg-transparent border-b border-accent focus:outline-none"
             />
           ) : (
@@ -86,7 +83,6 @@ export default function TripDetailClient({ initialTrip }: Props) {
             <button
               onClick={deleteTrip}
               className="font-mono text-xs text-muted hover:text-red-500 transition-colors px-2"
-              title="Delete trip"
             >
               Delete
             </button>
@@ -94,15 +90,19 @@ export default function TripDetailClient({ initialTrip }: Props) {
         </div>
       </header>
 
-      {/* Body: sidebar + main */}
       <div className="flex flex-1 overflow-hidden">
         <DestinationSidebar
           tripId={trip.id}
           destinations={trip.destinations ?? []}
+          travelers={trip.travelers ?? []}
           onUpdate={refreshTrip}
         />
         <main className="flex-1 overflow-hidden flex flex-col bg-cream">
-          <TripTabs trip={trip} onUpdate={refreshTrip} />
+          <TripTabs
+            trip={trip}
+            onUpdate={refreshTrip}
+            onCurrencyChange={(c) => setTrip((t) => ({ ...t, currency: c }))}
+          />
         </main>
       </div>
     </div>
