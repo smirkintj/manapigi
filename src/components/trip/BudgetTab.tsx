@@ -167,13 +167,15 @@ function ItemRow({
           </div>
           {showMYR && <p className="font-mono text-[9px] text-muted">≈ RM {myrEquiv.toFixed(2)}</p>}
         </div>
-        <span className={`font-mono text-xs shrink-0 ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
-          {formatAmount(eff, item.itemCurrency)}
-        </span>
-        {/* Desktop hover buttons — hidden on touch via pointer-none fallback on swipe */}
-        <div className="opacity-0 group-hover:opacity-100 hidden sm:flex gap-1 transition-opacity shrink-0">
-          <button onClick={() => setEditing(true)} className="text-muted hover:text-ink text-[10px] font-mono">edit</button>
-          <button onClick={remove} className="text-muted hover:text-red-500 text-[10px] font-mono">del</button>
+        {/* Amount fades on desktop hover; buttons overlay in its place */}
+        <div className="relative shrink-0">
+          <span className={`font-mono text-xs sm:group-hover:invisible ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
+            {formatAmount(eff, item.itemCurrency)}
+          </span>
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 hidden sm:flex gap-1.5 transition-opacity">
+            <button onClick={() => setEditing(true)} className="text-muted hover:text-ink text-[10px] font-mono">edit</button>
+            <button onClick={remove} className="text-muted hover:text-red-500 text-[10px] font-mono">del</button>
+          </div>
         </div>
       </div>
     </SwipeRow>

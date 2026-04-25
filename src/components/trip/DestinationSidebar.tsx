@@ -4,6 +4,22 @@ import { useState, useEffect } from 'react'
 import type { Destination, Traveler } from '@/lib/types'
 import { formatDate, TRANSPORT_MODES } from '@/lib/utils'
 import DatePicker from '@/components/ui/DatePicker'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 function TravelersSection({
   tripId,
@@ -87,6 +103,91 @@ function TravelersSection({
   )
 }
 
+function SortableStop({
+  dest,
+  index,
+  total,
+  onDelete,
+}: {
+  dest: Destination
+  index: number
+  total: number
+  onDelete: (id: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: dest.id, disabled: dest.id.startsWith('temp-') })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  return (
+    <li ref={setNodeRef} style={style} className="relative group">
+      {index > 0 && (
+        <div className="flex items-center gap-1.5 mb-2 pl-[10px]">
+          <div className="w-px h-3 bg-border" />
+          {dest.transportMode && (
+            <span className="font-mono text-[10px] text-muted bg-card border border-border rounded-full px-2 py-0.5">
+              {TRANSPORT_MODES.find((m) => m.value === dest.transportMode)?.label ?? dest.transportMode}
+            </span>
+          )}
+          {!dest.transportMode && <div className="w-px h-3 bg-border" />}
+        </div>
+      )}
+
+      <div className="flex items-start gap-3 pb-4">
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="shrink-0 mt-1 cursor-grab active:cursor-grabbing touch-none text-border hover:text-muted transition-colors"
+          aria-label="Drag to reorder"
+        >
+          <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+            <circle cx="3" cy="2.5" r="1.2" /><circle cx="7" cy="2.5" r="1.2" />
+            <circle cx="3" cy="7" r="1.2" /><circle cx="7" cy="7" r="1.2" />
+            <circle cx="3" cy="11.5" r="1.2" /><circle cx="7" cy="11.5" r="1.2" />
+          </svg>
+        </button>
+
+        <div className="shrink-0 mt-0.5 flex flex-col items-center">
+          <div className="w-[22px] h-[22px] rounded-full bg-accent border-2 border-cream shadow-sm flex items-center justify-center">
+            <span className="font-mono text-[9px] text-cream font-bold">{index + 1}</span>
+          </div>
+          {index < total - 1 && (
+            <div className="w-px flex-1 min-h-[8px] bg-border mt-1" />
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-1">
+            <p className="text-sm text-ink font-medium leading-snug break-words">{dest.name}</p>
+            {!dest.id.startsWith('temp-') && (
+              <button
+                onClick={() => onDelete(dest.id)}
+                className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-500 transition-all text-sm shrink-0 mt-0.5"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          {(dest.arrival || dest.departure) && (
+            <p className="font-mono text-[10px] text-muted mt-0.5">
+              {[dest.arrival, dest.departure].filter(Boolean).map(formatDate).join(' → ')}
+            </p>
+          )}
+          {dest.id.startsWith('temp-') && (
+            <p className="font-mono text-[9px] text-muted/60 mt-0.5">saving…</p>
+          )}
+        </div>
+      </div>
+    </li>
+  )
+}
+
 type Props = {
   tripId: string
   destinations: Destination[]
@@ -103,6 +204,32 @@ export default function DestinationSidebar({ tripId, destinations, travelers, on
   const [transportMode, setTransportMode] = useState('')
 
   useEffect(() => { setLocalDests(destinations) }, [destinations])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+  )
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = localDests.findIndex((d) => d.id === active.id)
+    const newIndex = localDests.findIndex((d) => d.id === over.id)
+    const reordered = arrayMove(localDests, oldIndex, newIndex)
+    setLocalDests(reordered)
+
+    await Promise.all(
+      reordered.map((d, i) =>
+        fetch(`/api/destinations/${d.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...d, order: i }),
+        }),
+      ),
+    )
+    onUpdate()
+  }
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -159,56 +286,21 @@ export default function DestinationSidebar({ tripId, destinations, travelers, on
         {localDests.length === 0 && (
           <p className="px-4 text-xs text-muted font-mono">No stops yet</p>
         )}
-        <ol className="px-4">
-          {localDests.map((d, i) => (
-            <li key={d.id} className="relative group">
-              {i > 0 && (
-                <div className="flex items-center gap-1.5 mb-2 pl-[10px]">
-                  <div className="w-px h-3 bg-border" />
-                  {d.transportMode && (
-                    <span className="font-mono text-[10px] text-muted bg-card border border-border rounded-full px-2 py-0.5">
-                      {TRANSPORT_MODES.find((m) => m.value === d.transportMode)?.label ?? d.transportMode}
-                    </span>
-                  )}
-                  {!d.transportMode && <div className="w-px h-3 bg-border" />}
-                </div>
-              )}
-
-              <div className="flex items-start gap-3 pb-4">
-                <div className="shrink-0 mt-0.5 flex flex-col items-center">
-                  <div className="w-[22px] h-[22px] rounded-full bg-accent border-2 border-cream shadow-sm flex items-center justify-center">
-                    <span className="font-mono text-[9px] text-cream font-bold">{i + 1}</span>
-                  </div>
-                  {i < localDests.length - 1 && (
-                    <div className="w-px flex-1 min-h-[8px] bg-border mt-1" />
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-1">
-                    <p className="text-sm text-ink font-medium leading-snug break-words">{d.name}</p>
-                    {!d.id.startsWith('temp-') && (
-                      <button
-                        onClick={() => handleDelete(d.id)}
-                        className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-500 transition-all text-sm shrink-0 mt-0.5"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                  {(d.arrival || d.departure) && (
-                    <p className="font-mono text-[10px] text-muted mt-0.5">
-                      {[d.arrival, d.departure].filter(Boolean).map(formatDate).join(' → ')}
-                    </p>
-                  )}
-                  {d.id.startsWith('temp-') && (
-                    <p className="font-mono text-[9px] text-muted/60 mt-0.5">saving…</p>
-                  )}
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={localDests.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+            <ol className="px-4">
+              {localDests.map((d, i) => (
+                <SortableStop
+                  key={d.id}
+                  dest={d}
+                  index={i}
+                  total={localDests.length}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </ol>
+          </SortableContext>
+        </DndContext>
       </div>
 
       {/* Add stop form — always visible */}
