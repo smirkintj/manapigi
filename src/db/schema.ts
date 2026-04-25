@@ -33,7 +33,7 @@ export const destinations = pgTable('destinations', {
   arrival: text('arrival'),
   departure: text('departure'),
   notes: text('notes'),
-  transportMode: text('transport_mode'), // how you travel TO this stop
+  transportMode: text('transport_mode'),
   order: integer('order').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
@@ -68,7 +68,8 @@ export const budgetItems = pgTable('budget_items', {
     .references(() => budgetCategories.id, { onDelete: 'cascade' }),
   label: text('label').notNull(),
   amount: real('amount').notNull().default(0),
-  itemCurrency: text('item_currency'), // null = use trip currency
+  itemCurrency: text('item_currency').default('MYR').notNull(),
+  perPax: boolean('per_pax').notNull().default(false),
   paid: boolean('paid').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
@@ -91,7 +92,7 @@ export const accommodations = pgTable('accommodations', {
     onDelete: 'set null',
   }),
   name: text('name').notNull(),
-  type: text('type').default('hotel'), // hotel | airbnb | hostel | guesthouse | other
+  type: text('type').default('hotel'),
   checkIn: text('check_in'),
   checkOut: text('check_out'),
   order: integer('order').notNull().default(0),
@@ -103,8 +104,33 @@ export const accommodationRooms = pgTable('accommodation_rooms', {
     .notNull()
     .references(() => accommodations.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  guests: text('guests'), // comma-separated names
+  guests: text('guests'),
   price: real('price').default(0),
+})
+
+export const optionGroups = pgTable('option_groups', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tripId: uuid('trip_id')
+    .notNull()
+    .references(() => trips.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  category: text('category').default('other'), // flight | accommodation | transport | other
+  order: integer('order').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+export const optionChoices = pgTable('option_choices', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  groupId: uuid('group_id')
+    .notNull()
+    .references(() => optionGroups.id, { onDelete: 'cascade' }),
+  label: text('label').notNull(),
+  amount: real('amount').notNull().default(0),
+  currency: text('currency').notNull().default('MYR'),
+  timing: text('timing'),
+  notes: text('notes'),
+  order: integer('order').notNull().default(0),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
 // ── Relations ──────────────────────────────────────────────────────────────
@@ -114,6 +140,7 @@ export const tripsRelations = relations(trips, ({ many }) => ({
   budgetCategories: many(budgetCategories),
   travelers: many(travelers),
   accommodations: many(accommodations),
+  optionGroups: many(optionGroups),
 }))
 
 export const destinationsRelations = relations(destinations, ({ one, many }) => ({
@@ -154,4 +181,13 @@ export const accommodationRoomsRelations = relations(accommodationRooms, ({ one 
     fields: [accommodationRooms.accommodationId],
     references: [accommodations.id],
   }),
+}))
+
+export const optionGroupsRelations = relations(optionGroups, ({ one, many }) => ({
+  trip: one(trips, { fields: [optionGroups.tripId], references: [trips.id] }),
+  choices: many(optionChoices),
+}))
+
+export const optionChoicesRelations = relations(optionChoices, ({ one }) => ({
+  group: one(optionGroups, { fields: [optionChoices.groupId], references: [optionGroups.id] }),
 }))

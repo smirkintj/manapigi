@@ -30,6 +30,10 @@ async function getTrip(id: string) {
         orderBy: (a, { asc }) => [asc(a.order)],
         with: { rooms: true },
       },
+      optionGroups: {
+        orderBy: (g, { asc }) => [asc(g.order)],
+        with: { choices: { orderBy: (c, { asc }) => [asc(c.order)] } },
+      },
     },
   })
 }

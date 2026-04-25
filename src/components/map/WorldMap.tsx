@@ -51,8 +51,11 @@ async function fetchOsrmRoute(
   profile: 'driving' | 'foot'
 ): Promise<[number, number][] | null> {
   try {
-    const url = `https://router.project-osrm.org/route/v1/${profile}/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
+    const fromStr = `${from[1]},${from[0]}`
+    const toStr = `${to[1]},${to[0]}`
+    const res = await fetch(`/api/route?from=${fromStr}&to=${toStr}&profile=${profile}`, {
+      signal: AbortSignal.timeout(8000),
+    })
     if (!res.ok) return null
     const data = await res.json()
     const coords = data.routes?.[0]?.geometry?.coordinates as [number, number][] | undefined

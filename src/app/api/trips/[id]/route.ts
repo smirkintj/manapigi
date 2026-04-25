@@ -31,6 +31,10 @@ export async function GET(
         orderBy: (a, { asc }) => [asc(a.order)],
         with: { rooms: true },
       },
+      optionGroups: {
+        orderBy: (g, { asc }) => [asc(g.order)],
+        with: { choices: { orderBy: (c, { asc }) => [asc(c.order)] } },
+      },
     },
   })
 

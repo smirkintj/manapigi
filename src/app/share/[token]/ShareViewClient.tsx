@@ -6,17 +6,19 @@ import dynamic from 'next/dynamic'
 import ItineraryTab from '@/components/trip/ItineraryTab'
 import BudgetTab from '@/components/trip/BudgetTab'
 import NotesTab from '@/components/trip/NotesTab'
+import OptionsTab from '@/components/trip/OptionsTab'
 import { useState } from 'react'
 
 const WorldMap = dynamic(() => import('@/components/map/WorldMap'), { ssr: false })
 
-const TABS = ['Map', 'Itinerary', 'Budget', 'Notes'] as const
+const TABS = ['Map', 'Itinerary', 'Budget', 'Options', 'Notes'] as const
 type Tab = (typeof TABS)[number]
 
 type Props = { trip: Trip }
 
 export default function ShareViewClient({ trip }: Props) {
   const [active, setActive] = useState<Tab>('Map')
+  const travelerCount = Math.max(1, (trip.travelers ?? []).length)
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -73,12 +75,12 @@ export default function ShareViewClient({ trip }: Props) {
 
       {/* Tab bar */}
       <div className="border-b border-border bg-cream sticky top-[57px] z-10">
-        <div className="max-w-4xl mx-auto px-6 flex gap-0">
+        <div className="max-w-4xl mx-auto px-6 flex gap-0 overflow-x-auto">
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActive(tab)}
-              className={`font-mono text-xs uppercase tracking-wider px-4 py-3 border-b-2 transition-colors ${
+              className={`font-mono text-xs uppercase tracking-wider px-4 py-3 border-b-2 whitespace-nowrap transition-colors ${
                 active === tab
                   ? 'border-accent text-accent'
                   : 'border-transparent text-muted hover:text-ink'
@@ -98,18 +100,24 @@ export default function ShareViewClient({ trip }: Props) {
           </div>
         )}
         {active === 'Itinerary' && (
-          <ItineraryTab
-            destinations={trip.destinations ?? []}
-            onUpdate={() => {}}
-          />
+          <ItineraryTab destinations={trip.destinations ?? []} onUpdate={() => {}} />
         )}
         {active === 'Budget' && (
           <BudgetTab
             tripId={trip.id}
             tripCurrency={trip.currency ?? 'MYR'}
             categories={trip.budgetCategories ?? []}
+            travelerCount={travelerCount}
             onUpdate={() => {}}
             onCurrencyChange={() => {}}
+          />
+        )}
+        {active === 'Options' && (
+          <OptionsTab
+            tripId={trip.id}
+            optionGroups={trip.optionGroups ?? []}
+            readOnly
+            onUpdate={() => {}}
           />
         )}
         {active === 'Notes' && (

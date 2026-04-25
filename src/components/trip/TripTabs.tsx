@@ -7,11 +7,12 @@ import ItineraryTab from './ItineraryTab'
 import BudgetTab from './BudgetTab'
 import NotesTab from './NotesTab'
 import StayTab from './StayTab'
+import OptionsTab from './OptionsTab'
 import { formatDate } from '@/lib/utils'
 
 const WorldMap = dynamic(() => import('@/components/map/WorldMap'), { ssr: false })
 
-const TABS = ['Map', 'Itinerary', 'Budget', 'Stay', 'Notes'] as const
+const TABS = ['Map', 'Itinerary', 'Budget', 'Stay', 'Options', 'Notes'] as const
 type Tab = (typeof TABS)[number]
 
 type Props = {
@@ -25,6 +26,7 @@ export default function TripTabs({ trip, onUpdate, onCurrencyChange, readOnly = 
   const [active, setActive] = useState<Tab>('Map')
 
   const noop = () => {}
+  const travelerCount = Math.max(1, (trip.travelers ?? []).length)
 
   return (
     <div className="flex flex-col h-full">
@@ -80,6 +82,7 @@ export default function TripTabs({ trip, onUpdate, onCurrencyChange, readOnly = 
             tripId={trip.id}
             tripCurrency={trip.currency ?? 'MYR'}
             categories={trip.budgetCategories ?? []}
+            travelerCount={travelerCount}
             onUpdate={readOnly ? noop : onUpdate}
             onCurrencyChange={readOnly ? noop : (onCurrencyChange ?? noop)}
           />
@@ -90,6 +93,15 @@ export default function TripTabs({ trip, onUpdate, onCurrencyChange, readOnly = 
             tripId={trip.id}
             accommodations={trip.accommodations ?? []}
             destinations={trip.destinations ?? []}
+            onUpdate={readOnly ? noop : onUpdate}
+          />
+        )}
+
+        {active === 'Options' && (
+          <OptionsTab
+            tripId={trip.id}
+            optionGroups={trip.optionGroups ?? []}
+            readOnly={readOnly}
             onUpdate={readOnly ? noop : onUpdate}
           />
         )}

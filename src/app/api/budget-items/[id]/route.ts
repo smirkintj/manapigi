@@ -8,11 +8,17 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const { label, amount, paid, itemCurrency } = await req.json()
+  const { label, amount, paid, itemCurrency, perPax } = await req.json()
 
   const [item] = await db
     .update(budgetItems)
-    .set({ label, amount: parseFloat(amount) || 0, paid, itemCurrency: itemCurrency ?? null })
+    .set({
+      label,
+      amount: parseFloat(amount) || 0,
+      paid,
+      itemCurrency: itemCurrency ?? 'MYR',
+      perPax: perPax ?? false,
+    })
     .where(eq(budgetItems.id, id))
     .returning()
 

@@ -12,6 +12,7 @@ export type Trip = {
   budgetCategories?: BudgetCategory[]
   travelers?: Traveler[]
   accommodations?: Accommodation[]
+  optionGroups?: OptionGroup[]
 }
 
 export type Destination = {
@@ -53,7 +54,8 @@ export type BudgetItem = {
   categoryId: string
   label: string
   amount: number
-  itemCurrency: string | null
+  itemCurrency: string // always explicit, default 'MYR'
+  perPax: boolean
   paid: boolean
 }
 
@@ -82,4 +84,24 @@ export type AccommodationRoom = {
   name: string
   guests: string | null
   price: number | null
+}
+
+export type OptionGroup = {
+  id: string
+  tripId: string
+  title: string
+  category: string | null
+  order: number
+  choices?: OptionChoice[]
+}
+
+export type OptionChoice = {
+  id: string
+  groupId: string
+  label: string
+  amount: number
+  currency: string
+  timing: string | null
+  notes: string | null
+  order: number
 }
