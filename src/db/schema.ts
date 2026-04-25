@@ -70,7 +70,9 @@ export const budgetItems = pgTable('budget_items', {
   amount: real('amount').notNull().default(0),
   itemCurrency: text('item_currency').default('MYR').notNull(),
   perPax: boolean('per_pax').notNull().default(false),
-  paid: boolean('paid').notNull().default(false),
+  bookingStatus: text('booking_status').notNull().default('pending'), // pending | in_progress | done
+  deadline: text('deadline'), // YYYY-MM-DD, optional
+  paid: boolean('paid').notNull().default(false), // legacy, kept for compat
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 

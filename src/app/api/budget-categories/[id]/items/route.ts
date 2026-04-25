@@ -7,7 +7,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const { label, amount, itemCurrency, perPax } = await req.json()
+  const { label, amount, itemCurrency, perPax, deadline } = await req.json()
 
   const [item] = await db
     .insert(budgetItems)
@@ -17,6 +17,8 @@ export async function POST(
       amount: parseFloat(amount) || 0,
       itemCurrency: itemCurrency ?? 'MYR',
       perPax: perPax ?? false,
+      bookingStatus: 'pending',
+      deadline: deadline ?? null,
     })
     .returning()
 

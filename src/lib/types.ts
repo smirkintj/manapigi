@@ -49,14 +49,17 @@ export type BudgetCategory = {
   items?: BudgetItem[]
 }
 
+export type BookingStatus = 'pending' | 'in_progress' | 'done'
+
 export type BudgetItem = {
   id: string
   categoryId: string
   label: string
   amount: number
-  itemCurrency: string // always explicit, default 'MYR'
+  itemCurrency: string
   perPax: boolean
-  paid: boolean
+  bookingStatus: string // DB returns string; cast to BookingStatus in component
+  deadline: string | null
 }
 
 export type Traveler = {
