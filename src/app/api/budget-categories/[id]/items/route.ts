@@ -7,7 +7,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const { label, amount, itemCurrency, perPax, deadline } = await req.json()
+  const { label, amount, itemCurrency, perPax, deadline, accommodationId } = await req.json()
 
   const [item] = await db
     .insert(budgetItems)
@@ -19,6 +19,7 @@ export async function POST(
       perPax: perPax ?? false,
       bookingStatus: 'pending',
       deadline: deadline ?? null,
+      accommodationId: accommodationId ?? null,
     })
     .returning()
 

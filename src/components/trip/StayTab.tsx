@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { Accommodation, AccommodationRoom, Destination } from '@/lib/types'
+import type { Accommodation, AccommodationRoom, BudgetCategory, BudgetItem, Destination } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 import DatePicker from '@/components/ui/DatePicker'
 
@@ -87,10 +87,12 @@ function RoomRow({ room, onUpdate }: { room: AccommodationRoom; onUpdate: () => 
 function AccommodationCard({
   acc,
   destinations,
+  linkedItems,
   onUpdate,
 }: {
   acc: Accommodation
   destinations: Destination[]
+  linkedItems: BudgetItem[]
   onUpdate: () => void
 }) {
   const [addingRoom, setAddingRoom] = useState(false)
@@ -102,6 +104,11 @@ function AccommodationCard({
   const linkedDest = destinations.find((d) => d.id === acc.destinationId)
   const rooms = acc.rooms ?? []
   const totalPrice = rooms.reduce((s, r) => s + (r.price ?? 0), 0)
+  const STATUS_DOT: Record<string, string> = {
+    done: '✓',
+    in_progress: '◑',
+    pending: '○',
+  }
 
   const addRoom = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -162,6 +169,30 @@ function AccommodationCard({
         </div>
       </div>
 
+      {linkedItems.length > 0 && (
+        <div className="px-4 py-2 border-b border-border bg-accent-light/10">
+          <p className="font-mono text-[10px] uppercase tracking-wider text-muted mb-1.5">Budget items</p>
+          <div className="space-y-1">
+            {linkedItems.map((item) => (
+              <div key={item.id} className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[10px] text-muted font-mono shrink-0">
+                    {STATUS_DOT[item.bookingStatus] ?? '○'}
+                  </span>
+                  <span className="text-xs text-ink truncate">{item.label}</span>
+                  {item.deadline && (
+                    <span className="font-mono text-[10px] text-muted shrink-0">· {formatDate(item.deadline)}</span>
+                  )}
+                </div>
+                <span className="font-mono text-xs text-ink shrink-0">
+                  {item.itemCurrency} {item.amount.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="px-4 divide-y divide-border">
         {rooms.map((room) => (
           <RoomRow key={room.id} room={room} onUpdate={onUpdate} />
@@ -220,10 +251,11 @@ type Props = {
   tripId: string
   accommodations: Accommodation[]
   destinations: Destination[]
+  budgetCategories?: BudgetCategory[]
   onUpdate: () => void
 }
 
-export default function StayTab({ tripId, accommodations, destinations, onUpdate }: Props) {
+export default function StayTab({ tripId, accommodations, destinations, budgetCategories, onUpdate }: Props) {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [type, setType] = useState('hotel')
@@ -266,9 +298,20 @@ export default function StayTab({ tripId, accommodations, destinations, onUpdate
         </div>
       )}
 
-      {accommodations.map((acc) => (
-        <AccommodationCard key={acc.id} acc={acc} destinations={destinations} onUpdate={onUpdate} />
-      ))}
+      {accommodations.map((acc) => {
+        const linked = (budgetCategories ?? []).flatMap((c) =>
+          (c.items ?? []).filter((it) => it.accommodationId === acc.id),
+        )
+        return (
+          <AccommodationCard
+            key={acc.id}
+            acc={acc}
+            destinations={destinations}
+            linkedItems={linked}
+            onUpdate={onUpdate}
+          />
+        )
+      })}
 
       {adding ? (
         <form onSubmit={add} className="border border-border rounded-xl p-4 space-y-3 bg-card">

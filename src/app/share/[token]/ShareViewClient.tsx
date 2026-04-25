@@ -108,6 +108,7 @@ export default function ShareViewClient({ trip }: Props) {
             tripCurrency={trip.currency ?? 'MYR'}
             categories={trip.budgetCategories ?? []}
             travelerCount={travelerCount}
+            accommodations={trip.accommodations ?? []}
             onUpdate={() => {}}
             onCurrencyChange={() => {}}
           />

@@ -60,6 +60,7 @@ export type BudgetItem = {
   perPax: boolean
   bookingStatus: string // DB returns string; cast to BookingStatus in component
   deadline: string | null
+  accommodationId: string | null
 }
 
 export type Traveler = {

@@ -83,6 +83,7 @@ export default function TripTabs({ trip, onUpdate, onCurrencyChange, readOnly = 
             tripCurrency={trip.currency ?? 'MYR'}
             categories={trip.budgetCategories ?? []}
             travelerCount={travelerCount}
+            accommodations={trip.accommodations ?? []}
             onUpdate={readOnly ? noop : onUpdate}
             onCurrencyChange={readOnly ? noop : (onCurrencyChange ?? noop)}
           />
@@ -93,6 +94,7 @@ export default function TripTabs({ trip, onUpdate, onCurrencyChange, readOnly = 
             tripId={trip.id}
             accommodations={trip.accommodations ?? []}
             destinations={trip.destinations ?? []}
+            budgetCategories={trip.budgetCategories ?? []}
             onUpdate={readOnly ? noop : onUpdate}
           />
         )}

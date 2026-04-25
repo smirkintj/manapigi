@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { BudgetCategory, BudgetItem, BookingStatus } from '@/lib/types'
+import type { BudgetCategory, BudgetItem, BookingStatus, Accommodation } from '@/lib/types'
 import { formatAmount, formatDate, CURRENCIES, CURRENCY_SYMBOLS } from '@/lib/utils'
 import DatePicker from '@/components/ui/DatePicker'
+import SwipeRow from '@/components/ui/SwipeRow'
 
 type Rates = Record<string, number>
 
@@ -21,7 +22,6 @@ const STATUS_NEXT: Record<BookingStatus, BookingStatus> = {
   in_progress: 'done',
   done: 'pending',
 }
-
 const STATUS_LABEL: Record<BookingStatus, string> = {
   pending: 'Pending',
   in_progress: 'In progress',
@@ -33,37 +33,36 @@ function StatusDot({ status, onClick }: { status: BookingStatus; onClick?: () =>
   if (status === 'done')
     return (
       <button type="button" onClick={onClick}
-        className={`${base} bg-accent border-accent flex items-center justify-center`}
-        title="Done — click to reset">
+        className={`${base} bg-accent border-accent flex items-center justify-center`} title="Done">
         <span className="text-cream text-[8px] font-bold leading-none">✓</span>
       </button>
     )
   if (status === 'in_progress')
     return (
       <button type="button" onClick={onClick}
-        className={`${base} border-amber-400 bg-amber-100 flex items-center justify-center`}
-        title="In progress — click for done">
+        className={`${base} border-amber-400 bg-amber-100 flex items-center justify-center`} title="In progress">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
       </button>
     )
   return (
     <button type="button" onClick={onClick}
-      className={`${base} border-border hover:border-accent`}
-      title="Pending — click for in progress" />
+      className={`${base} border-border hover:border-accent`} title="Pending" />
   )
 }
 
-// ── Item row in category card ────────────────────────────────────────────────
+// ── Item row ─────────────────────────────────────────────────────────────────
 
 function ItemRow({
   item,
   travelerCount,
   rates,
+  accommodations,
   onUpdate,
 }: {
   item: BudgetItem
   travelerCount: number
   rates: Rates
+  accommodations: Accommodation[]
   onUpdate: () => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -72,12 +71,13 @@ function ItemRow({
   const [currency, setCurrency] = useState(item.itemCurrency)
   const [perPax, setPerPax] = useState(item.perPax)
   const [deadline, setDeadline] = useState(item.deadline ?? '')
+  const [accommodationId, setAccommodationId] = useState(item.accommodationId ?? '')
 
+  const status = (item.bookingStatus ?? 'pending') as BookingStatus
   const eff = effectiveAmount(item, travelerCount)
   const myrEquiv = toMYR(eff, item.itemCurrency, rates)
   const showMYR = item.itemCurrency !== 'MYR' && Object.keys(rates).length > 0
-  const status = (item.bookingStatus ?? 'pending') as BookingStatus
-  const isDone = status === 'done'
+  const linkedStay = accommodations.find((a) => a.id === item.accommodationId)
 
   const cycleStatus = async () => {
     if (item.id.startsWith('temp-')) return
@@ -88,6 +88,7 @@ function ItemRow({
       body: JSON.stringify({
         label: item.label, amount: item.amount, itemCurrency: item.itemCurrency,
         perPax: item.perPax, bookingStatus: next, deadline: item.deadline,
+        accommodationId: item.accommodationId,
       }),
     })
     onUpdate()
@@ -100,6 +101,7 @@ function ItemRow({
       body: JSON.stringify({
         label, amount: parseFloat(amount) || 0, itemCurrency: currency,
         perPax, bookingStatus: status, deadline: deadline || null,
+        accommodationId: accommodationId || null,
       }),
     })
     setEditing(false)
@@ -115,25 +117,14 @@ function ItemRow({
     return (
       <div className="border-t border-border bg-accent-light/20 px-3 py-2.5 space-y-2">
         <div className="flex gap-2 flex-wrap items-center">
-          <input
-            autoFocus
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            className="flex-1 min-w-28 border border-border rounded px-2 py-1 text-sm bg-cream focus:outline-none focus:border-accent"
-          />
-          <select
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            className="border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent"
-          >
+          <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)}
+            className="flex-1 min-w-28 border border-border rounded px-2 py-1 text-sm bg-cream focus:outline-none focus:border-accent" />
+          <select value={currency} onChange={(e) => setCurrency(e.target.value)}
+            className="border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent">
             {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            type="number" step="any" placeholder="0"
-            className="w-24 border border-border rounded px-2 py-1 text-sm font-mono bg-cream focus:outline-none focus:border-accent text-right"
-          />
+          <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" step="any"
+            className="w-24 border border-border rounded px-2 py-1 text-sm font-mono bg-cream focus:outline-none focus:border-accent text-right" />
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           <DatePicker value={deadline} onChange={setDeadline} placeholder="Book by (optional)" className="flex-1 text-xs" />
@@ -141,58 +132,69 @@ function ItemRow({
             <input type="checkbox" checked={perPax} onChange={(e) => setPerPax(e.target.checked)} className="accent-accent" />
             per pax
           </label>
-          <button onClick={save} className="font-mono text-xs text-accent font-semibold hover:underline">Save</button>
+        </div>
+        {accommodations.length > 0 && (
+          <select value={accommodationId} onChange={(e) => setAccommodationId(e.target.value)}
+            className="w-full border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent text-muted">
+            <option value="">Link to stay (optional)</option>
+            {accommodations.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        )}
+        <div className="flex gap-2 justify-end">
           <button onClick={() => setEditing(false)} className="font-mono text-xs text-muted hover:text-ink">Cancel</button>
+          <button onClick={save} className="font-mono text-xs text-accent font-semibold hover:underline">Save</button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-t border-border group hover:bg-cream/50 transition-colors">
-      <StatusDot status={status} onClick={cycleStatus} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className={`text-xs ${isDone ? 'line-through text-muted' : 'text-ink'}`}>{item.label}</span>
-          {item.perPax && travelerCount > 1 && (
-            <span className="font-mono text-[9px] text-muted border border-border rounded px-1">×{travelerCount}</span>
-          )}
-          {item.deadline && (
-            <span className="font-mono text-[9px] text-muted border border-border rounded px-1">
-              by {formatDate(item.deadline)}
-            </span>
-          )}
+    <SwipeRow onEdit={() => setEditing(true)} onDelete={remove}>
+      <div className="flex items-center gap-2 px-3 py-2 border-t border-border hover:bg-cream/50 transition-colors">
+        <StatusDot status={status} onClick={cycleStatus} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={`text-xs ${status === 'done' ? 'line-through text-muted' : 'text-ink'}`}>{item.label}</span>
+            {item.perPax && travelerCount > 1 && (
+              <span className="font-mono text-[9px] text-muted border border-border rounded px-1">×{travelerCount}</span>
+            )}
+            {item.deadline && (
+              <span className="font-mono text-[9px] text-muted border border-border rounded px-1">by {formatDate(item.deadline)}</span>
+            )}
+            {linkedStay && (
+              <span className="font-mono text-[9px] text-accent/70 border border-accent/20 rounded px-1">{linkedStay.name}</span>
+            )}
+          </div>
+          {showMYR && <p className="font-mono text-[9px] text-muted">≈ RM {myrEquiv.toFixed(2)}</p>}
         </div>
-        {showMYR && (
-          <p className="font-mono text-[9px] text-muted">≈ RM {myrEquiv.toFixed(2)}</p>
-        )}
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <span className={`font-mono text-xs ${isDone ? 'text-muted' : 'text-ink'}`}>
+        <span className={`font-mono text-xs shrink-0 ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
           {formatAmount(eff, item.itemCurrency)}
         </span>
-        <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+        {/* Desktop hover buttons — hidden on touch via pointer-none fallback on swipe */}
+        <div className="opacity-0 group-hover:opacity-100 hidden sm:flex gap-1 transition-opacity shrink-0">
           <button onClick={() => setEditing(true)} className="text-muted hover:text-ink text-[10px] font-mono">edit</button>
           <button onClick={remove} className="text-muted hover:text-red-500 text-[10px] font-mono">del</button>
         </div>
       </div>
-    </div>
+    </SwipeRow>
   )
 }
 
-// ── Category card (compact, 2-col grid) ─────────────────────────────────────
+// ── Category card ─────────────────────────────────────────────────────────────
 
 function CategoryCard({
   category,
   defaultCurrency,
   travelerCount,
   rates,
+  accommodations,
   onUpdate,
 }: {
   category: BudgetCategory
   defaultCurrency: string
   travelerCount: number
   rates: Rates
+  accommodations: Accommodation[]
   onUpdate: () => void
 }) {
   const [localItems, setLocalItems] = useState<BudgetItem[]>(category.items ?? [])
@@ -202,6 +204,7 @@ function CategoryCard({
   const [itemCurrency, setItemCurrency] = useState(defaultCurrency)
   const [perPax, setPerPax] = useState(false)
   const [deadline, setDeadline] = useState('')
+  const [accommodationId, setAccommodationId] = useState('')
 
   useEffect(() => { setLocalItems(category.items ?? []) }, [category.items])
 
@@ -222,9 +225,11 @@ function CategoryCard({
       perPax,
       bookingStatus: 'pending',
       deadline: deadline || null,
+      accommodationId: accommodationId || null,
     }
     setLocalItems((prev) => [...prev, optimistic])
-    setLabel(''); setAmount(''); setItemCurrency(defaultCurrency); setPerPax(false); setDeadline('')
+    setLabel(''); setAmount(''); setItemCurrency(defaultCurrency)
+    setPerPax(false); setDeadline(''); setAccommodationId('')
     setAddingItem(false)
 
     await fetch(`/api/budget-categories/${category.id}/items`, {
@@ -233,7 +238,7 @@ function CategoryCard({
       body: JSON.stringify({
         label: optimistic.label, amount: optimistic.amount,
         itemCurrency: optimistic.itemCurrency, perPax: optimistic.perPax,
-        deadline: optimistic.deadline,
+        deadline: optimistic.deadline, accommodationId: optimistic.accommodationId,
       }),
     })
     onUpdate()
@@ -247,7 +252,6 @@ function CategoryCard({
 
   return (
     <div className="border border-border rounded-xl overflow-hidden bg-card">
-      {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: category.color ?? '#2d5a3d' }} />
@@ -259,55 +263,52 @@ function CategoryCard({
         </div>
       </div>
 
-      {/* Items */}
       {localItems.map((item) => (
-        <ItemRow key={item.id} item={item} travelerCount={travelerCount} rates={rates} onUpdate={onUpdate} />
+        <ItemRow
+          key={item.id}
+          item={item}
+          travelerCount={travelerCount}
+          rates={rates}
+          accommodations={accommodations}
+          onUpdate={onUpdate}
+        />
       ))}
 
-      {/* Add item */}
       {addingItem ? (
         <form onSubmit={addItem} className="border-t border-border px-3 py-2.5 space-y-2 bg-cream/40">
           <div className="flex gap-1.5 items-center">
-            <input
-              autoFocus
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="Item"
-              className="flex-1 border border-border rounded px-2 py-1 text-xs bg-cream focus:outline-none focus:border-accent"
-            />
-            <select
-              value={itemCurrency}
-              onChange={(e) => setItemCurrency(e.target.value)}
-              className="border border-border rounded px-1.5 py-1 text-[10px] font-mono bg-cream focus:outline-none focus:border-accent"
-            >
+            <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Item"
+              className="flex-1 border border-border rounded px-2 py-1 text-xs bg-cream focus:outline-none focus:border-accent" />
+            <select value={itemCurrency} onChange={(e) => setItemCurrency(e.target.value)}
+              className="border border-border rounded px-1.5 py-1 text-[10px] font-mono bg-cream focus:outline-none focus:border-accent">
               {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            <input
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0"
-              type="number" step="any"
-              className="w-20 border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent text-right"
-            />
+            <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" type="number" step="any"
+              className="w-20 border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent text-right" />
           </div>
-          <div className="flex gap-1.5 items-center">
-            <DatePicker value={deadline} onChange={setDeadline} placeholder="Book by (optional)" className="flex-1 text-[10px]" />
+          <div className="flex gap-1.5 items-center flex-wrap">
+            <DatePicker value={deadline} onChange={setDeadline} placeholder="Book by" className="flex-1 text-[10px]" />
             <label className="flex items-center gap-1 font-mono text-[10px] text-muted whitespace-nowrap">
               <input type="checkbox" checked={perPax} onChange={(e) => setPerPax(e.target.checked)} className="accent-accent" />
               /pax
             </label>
+          </div>
+          {accommodations.length > 0 && (
+            <select value={accommodationId} onChange={(e) => setAccommodationId(e.target.value)}
+              className="w-full border border-border rounded px-2 py-1 text-[10px] font-mono bg-cream focus:outline-none focus:border-accent text-muted">
+              <option value="">Link to stay (optional)</option>
+              {accommodations.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          )}
+          <div className="flex gap-1.5 justify-end">
             <button type="submit" disabled={!label.trim()}
-              className="bg-accent text-cream font-mono text-[10px] px-2.5 py-1 rounded hover:bg-accent/90 disabled:opacity-50">
-              Add
-            </button>
-            <button type="button" onClick={() => setAddingItem(false)} className="text-muted font-mono text-[10px]">×</button>
+              className="bg-accent text-cream font-mono text-[10px] px-2.5 py-1 rounded hover:bg-accent/90 disabled:opacity-50">Add</button>
+            <button type="button" onClick={() => setAddingItem(false)} className="text-muted font-mono text-[10px]">Cancel</button>
           </div>
         </form>
       ) : (
-        <button
-          onClick={() => setAddingItem(true)}
-          className="w-full text-left px-3 py-2 font-mono text-[10px] text-muted hover:text-accent border-t border-border transition-colors"
-        >
+        <button onClick={() => setAddingItem(true)}
+          className="w-full text-left px-3 py-2 font-mono text-[10px] text-muted hover:text-accent border-t border-border transition-colors">
           + Add item
         </button>
       )}
@@ -315,17 +316,19 @@ function CategoryCard({
   )
 }
 
-// ── Purchase tracker ─────────────────────────────────────────────────────────
+// ── Purchase tracker ──────────────────────────────────────────────────────────
 
 type TrackedItem = BudgetItem & { categoryName: string }
 
 function PurchaseTracker({
   categories,
+  accommodations,
   travelerCount,
   rates,
   onUpdate,
 }: {
   categories: BudgetCategory[]
+  accommodations: Accommodation[]
   travelerCount: number
   rates: Rates
   onUpdate: () => void
@@ -353,6 +356,7 @@ function PurchaseTracker({
       body: JSON.stringify({
         label: item.label, amount: item.amount, itemCurrency: item.itemCurrency,
         perPax: item.perPax, bookingStatus: next, deadline: item.deadline,
+        accommodationId: item.accommodationId,
       }),
     })
     onUpdate()
@@ -365,38 +369,37 @@ function PurchaseTracker({
       </div>
       <div className="divide-y divide-border">
         {tracked.map((item) => {
+          const status = (item.bookingStatus ?? 'pending') as BookingStatus
           const eff = effectiveAmount(item, travelerCount)
           const myrEquiv = toMYR(eff, item.itemCurrency, rates)
           const showMYR = item.itemCurrency !== 'MYR' && Object.keys(rates).length > 0
+          const linkedStay = accommodations.find((a) => a.id === item.accommodationId)
           return (
-            <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 group hover:bg-cream/50 transition-colors">
-              <StatusDot status={(item.bookingStatus ?? 'pending') as BookingStatus} onClick={() => cycleStatus(item)} />
+            <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-cream/50 transition-colors">
+              <StatusDot status={status} onClick={() => cycleStatus(item)} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-sm ${item.bookingStatus === 'done' ? 'line-through text-muted' : 'text-ink'}`}>
+                  <span className={`text-sm ${status === 'done' ? 'line-through text-muted' : 'text-ink'}`}>
                     {item.label}
                   </span>
                   <span className="font-mono text-[10px] text-muted">{item.categoryName}</span>
+                  {linkedStay && (
+                    <span className="font-mono text-[10px] text-accent/70 border border-accent/20 rounded px-1">{linkedStay.name}</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  {item.deadline ? (
-                    <span className="font-mono text-[10px] text-muted">
-                      by {formatDate(item.deadline)}
-                    </span>
-                  ) : null}
+                  {item.deadline && (
+                    <span className="font-mono text-[10px] text-muted">by {formatDate(item.deadline)}</span>
+                  )}
                   <span className={`font-mono text-[10px] font-medium ${
-                    item.bookingStatus === 'done' ? 'text-accent' :
-                    item.bookingStatus === 'in_progress' ? 'text-amber-600' : 'text-muted'
-                  }`}>
-                    {STATUS_LABEL[(item.bookingStatus ?? 'pending') as BookingStatus]}
-                  </span>
+                    status === 'done' ? 'text-accent' :
+                    status === 'in_progress' ? 'text-amber-600' : 'text-muted'
+                  }`}>{STATUS_LABEL[status]}</span>
                 </div>
               </div>
               <div className="text-right shrink-0">
                 <p className="font-mono text-sm text-ink">{formatAmount(eff, item.itemCurrency)}</p>
-                {showMYR && (
-                  <p className="font-mono text-[10px] text-muted">≈ RM {myrEquiv.toFixed(0)}</p>
-                )}
+                {showMYR && <p className="font-mono text-[10px] text-muted">≈ RM {myrEquiv.toFixed(0)}</p>}
               </div>
             </div>
           )
@@ -406,18 +409,21 @@ function PurchaseTracker({
   )
 }
 
-// ── Budget tab ───────────────────────────────────────────────────────────────
+// ── Budget tab ────────────────────────────────────────────────────────────────
 
 type Props = {
   tripId: string
   tripCurrency: string
   categories: BudgetCategory[]
   travelerCount: number
+  accommodations: Accommodation[]
   onUpdate: () => void
   onCurrencyChange: (currency: string) => void
 }
 
-export default function BudgetTab({ tripId, tripCurrency, categories, travelerCount, onUpdate, onCurrencyChange }: Props) {
+export default function BudgetTab({
+  tripId, tripCurrency, categories, travelerCount, accommodations, onUpdate, onCurrencyChange,
+}: Props) {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -457,7 +463,7 @@ export default function BudgetTab({ tripId, tripCurrency, categories, travelerCo
   }
 
   return (
-    <div className="space-y-0">
+    <div>
       {/* Summary */}
       <div className="flex items-end justify-between gap-4 pb-5 mb-5 border-b border-border">
         <div>
@@ -473,14 +479,9 @@ export default function BudgetTab({ tripId, tripCurrency, categories, travelerCo
         </div>
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-muted">Default currency</span>
-          <select
-            value={tripCurrency}
-            onChange={(e) => saveCurrency(e.target.value)}
-            className="border border-border rounded-lg px-2.5 py-1.5 text-xs font-mono bg-cream focus:outline-none focus:border-accent"
-          >
-            {CURRENCIES.map((c) => (
-              <option key={c} value={c}>{CURRENCY_SYMBOLS[c]} {c}</option>
-            ))}
+          <select value={tripCurrency} onChange={(e) => saveCurrency(e.target.value)}
+            className="border border-border rounded-lg px-2.5 py-1.5 text-xs font-mono bg-cream focus:outline-none focus:border-accent">
+            {CURRENCIES.map((c) => <option key={c} value={c}>{CURRENCY_SYMBOLS[c]} {c}</option>)}
           </select>
         </div>
       </div>
@@ -488,12 +489,13 @@ export default function BudgetTab({ tripId, tripCurrency, categories, travelerCo
       {/* Purchase tracker */}
       <PurchaseTracker
         categories={categories}
+        accommodations={accommodations}
         travelerCount={travelerCount}
         rates={rates}
         onUpdate={onUpdate}
       />
 
-      {/* 2-column category grid */}
+      {/* 2-col category grid */}
       {categories.length > 0 && (
         <div className="grid grid-cols-2 gap-4 mb-5">
           {categories.map((cat) => (
@@ -503,6 +505,7 @@ export default function BudgetTab({ tripId, tripCurrency, categories, travelerCo
               defaultCurrency={tripCurrency}
               travelerCount={travelerCount}
               rates={rates}
+              accommodations={accommodations}
               onUpdate={onUpdate}
             />
           ))}
@@ -512,27 +515,19 @@ export default function BudgetTab({ tripId, tripCurrency, categories, travelerCo
       {/* Add category */}
       {adding ? (
         <form onSubmit={addCategory} className="flex gap-2">
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+          <input autoFocus value={name} onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Flights, Food, Activities"
-            className="flex-1 border border-border rounded-xl px-3 py-2.5 text-sm bg-card focus:outline-none focus:border-accent"
-          />
+            className="flex-1 border border-border rounded-xl px-3 py-2.5 text-sm bg-card focus:outline-none focus:border-accent" />
           <button type="submit" disabled={!name.trim() || loading}
             className="bg-accent text-cream font-mono text-sm px-4 py-2 rounded-xl hover:bg-accent/90 disabled:opacity-50">
             {loading ? '…' : 'Add'}
           </button>
           <button type="button" onClick={() => { setAdding(false); setName('') }}
-            className="font-mono text-sm text-muted hover:text-ink px-2">
-            Cancel
-          </button>
+            className="font-mono text-sm text-muted hover:text-ink px-2">Cancel</button>
         </form>
       ) : (
-        <button
-          onClick={() => setAdding(true)}
-          className="w-full border border-dashed border-border rounded-xl py-3 text-sm font-mono text-muted hover:border-accent hover:text-accent transition-colors"
-        >
+        <button onClick={() => setAdding(true)}
+          className="w-full border border-dashed border-border rounded-xl py-3 text-sm font-mono text-muted hover:border-accent hover:text-accent transition-colors">
           + Add category
         </button>
       )}

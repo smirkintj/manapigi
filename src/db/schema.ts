@@ -72,6 +72,7 @@ export const budgetItems = pgTable('budget_items', {
   perPax: boolean('per_pax').notNull().default(false),
   bookingStatus: text('booking_status').notNull().default('pending'), // pending | in_progress | done
   deadline: text('deadline'), // YYYY-MM-DD, optional
+  accommodationId: uuid('accommodation_id').references(() => accommodations.id, { onDelete: 'set null' }),
   paid: boolean('paid').notNull().default(false), // legacy, kept for compat
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
