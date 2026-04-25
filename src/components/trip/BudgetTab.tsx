@@ -155,34 +155,44 @@ function CategoryCard({
   rates: Rates
   onUpdate: () => void
 }) {
+  const [localItems, setLocalItems] = useState<BudgetItem[]>(category.items ?? [])
   const [addingItem, setAddingItem] = useState(false)
   const [label, setLabel] = useState('')
   const [amount, setAmount] = useState('')
   const [itemCurrency, setItemCurrency] = useState(tripCurrency)
-  const [loading, setLoading] = useState(false)
 
-  const items = category.items ?? []
-  const myrTotal = items.reduce((s, i) => s + toMYR(i.amount, i.itemCurrency ?? tripCurrency, rates), 0)
-  const myrPaid = items.filter((i) => i.paid).reduce((s, i) => s + toMYR(i.amount, i.itemCurrency ?? tripCurrency, rates), 0)
+  useEffect(() => { setLocalItems(category.items ?? []) }, [category.items])
+
+  const myrTotal = localItems.reduce((s, i) => s + toMYR(i.amount, i.itemCurrency ?? tripCurrency, rates), 0)
+  const myrPaid = localItems.filter((i) => i.paid).reduce((s, i) => s + toMYR(i.amount, i.itemCurrency ?? tripCurrency, rates), 0)
 
   const addItem = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!label.trim()) return
-    setLoading(true)
-    await fetch(`/api/budget-categories/${category.id}/items`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        label: label.trim(),
-        amount: parseFloat(amount) || 0,
-        itemCurrency: itemCurrency !== tripCurrency ? itemCurrency : null,
-      }),
-    })
-    setLoading(false)
+
+    const optimistic: BudgetItem = {
+      id: `temp-${Date.now()}`,
+      categoryId: category.id,
+      label: label.trim(),
+      amount: parseFloat(amount) || 0,
+      itemCurrency: itemCurrency !== tripCurrency ? itemCurrency : null,
+      paid: false,
+    }
+    setLocalItems((prev) => [...prev, optimistic])
     setLabel('')
     setAmount('')
     setItemCurrency(tripCurrency)
     setAddingItem(false)
+
+    await fetch(`/api/budget-categories/${category.id}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        label: optimistic.label,
+        amount: optimistic.amount,
+        itemCurrency: optimistic.itemCurrency,
+      }),
+    })
     onUpdate()
   }
 
@@ -214,7 +224,7 @@ function CategoryCard({
       {/* Items table */}
       <table className="w-full">
         <tbody>
-          {items.map((item) => (
+          {localItems.map((item) => (
             <ItemRow
               key={item.id}
               item={item}
@@ -254,10 +264,9 @@ function CategoryCard({
                   />
                   <button
                     type="submit"
-                    disabled={loading}
                     className="bg-accent text-cream font-mono text-xs px-3 py-1.5 rounded hover:bg-accent/90 disabled:opacity-50"
                   >
-                    {loading ? '…' : 'Add'}
+                    Add
                   </button>
                   <button type="button" onClick={() => setAddingItem(false)} className="text-muted font-mono text-xs">
                     Cancel

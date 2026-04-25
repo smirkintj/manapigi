@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Destination, ItineraryItem } from '@/lib/types'
 
 type Props = {
@@ -8,13 +8,7 @@ type Props = {
   onUpdate: () => void
 }
 
-function ItemRow({
-  item,
-  onUpdate,
-}: {
-  item: ItineraryItem
-  onUpdate: () => void
-}) {
+function ItemRow({ item, onUpdate }: { item: ItineraryItem; onUpdate: () => void }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(item.title)
   const [desc, setDesc] = useState(item.description ?? '')
@@ -85,97 +79,128 @@ function ItemRow({
   )
 }
 
-function AddItemForm({
-  destinationId,
-  onAdd,
-}: {
-  destinationId: string
-  onAdd: () => void
-}) {
+function DestinationBlock({ dest, onUpdate }: { dest: Destination; onUpdate: () => void }) {
+  const [localItems, setLocalItems] = useState<ItineraryItem[]>(dest.itineraryItems ?? [])
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [desc, setDesc] = useState('')
   const [day, setDay] = useState('')
   const [time, setTime] = useState('')
-  const [loading, setLoading] = useState(false)
+
+  useEffect(() => { setLocalItems(dest.itineraryItems ?? []) }, [dest.itineraryItems])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
-    setLoading(true)
-    await fetch(`/api/destinations/${destinationId}/itinerary`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: title.trim(),
-        description: desc.trim() || null,
-        day: day ? parseInt(day) : null,
-        time: time || null,
-      }),
-    })
-    setLoading(false)
+
+    const optimistic: ItineraryItem = {
+      id: `temp-${Date.now()}`,
+      destinationId: dest.id,
+      day: day ? parseInt(day) : null,
+      time: time || null,
+      title: title.trim(),
+      description: desc.trim() || null,
+      order: localItems.length,
+    }
+    setLocalItems((prev) => [...prev, optimistic])
     setTitle('')
     setDesc('')
     setDay('')
     setTime('')
     setOpen(false)
-    onAdd()
-  }
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="text-xs font-mono text-muted hover:text-accent transition-colors mt-2"
-      >
-        + Add activity
-      </button>
-    )
+    await fetch(`/api/destinations/${dest.id}/itinerary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: optimistic.title,
+        description: optimistic.description,
+        day: optimistic.day,
+        time: optimistic.time,
+      }),
+    })
+    onUpdate()
   }
 
   return (
-    <form onSubmit={submit} className="mt-3 border border-border rounded-lg p-3 space-y-2 bg-card">
-      <div className="flex gap-2">
-        <input
-          value={day}
-          onChange={(e) => setDay(e.target.value)}
-          placeholder="Day"
-          type="number"
-          min={1}
-          className="w-16 border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent"
-        />
-        <input
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          placeholder="10:00"
-          className="w-20 border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent"
-        />
-        <input
-          autoFocus
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Activity"
-          className="flex-1 border border-border rounded px-2 py-1 text-sm bg-cream focus:outline-none focus:border-accent"
-        />
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="font-serif text-base text-ink">{dest.name}</h3>
+        {(dest.arrival || dest.departure) && (
+          <span className="font-mono text-xs text-muted">
+            {dest.arrival}{dest.arrival && dest.departure ? ' → ' : ''}{dest.departure}
+          </span>
+        )}
       </div>
-      <textarea
-        value={desc}
-        onChange={(e) => setDesc(e.target.value)}
-        placeholder="Notes (optional)"
-        rows={2}
-        className="w-full border border-border rounded px-2 py-1.5 text-xs bg-cream focus:outline-none focus:border-accent resize-none"
-      />
-      <div className="flex justify-end gap-2">
-        <button type="button" onClick={() => setOpen(false)} className="font-mono text-xs text-muted hover:text-ink">Cancel</button>
+
+      <div className="pl-3 border-l-2 border-border space-y-0.5">
+        {localItems.length === 0 && (
+          <p className="text-xs text-muted font-mono">No activities yet</p>
+        )}
+        {localItems.map((item) => (
+          <ItemRow
+            key={item.id}
+            item={item}
+            onUpdate={() => {
+              setLocalItems(localItems.filter((i) => i.id !== item.id))
+              onUpdate()
+            }}
+          />
+        ))}
+      </div>
+
+      {open ? (
+        <form onSubmit={submit} className="mt-3 border border-border rounded-lg p-3 space-y-2 bg-card">
+          <div className="flex gap-2">
+            <input
+              value={day}
+              onChange={(e) => setDay(e.target.value)}
+              placeholder="Day"
+              type="number"
+              min={1}
+              className="w-16 border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent"
+            />
+            <input
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              placeholder="10:00"
+              className="w-20 border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent"
+            />
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Activity"
+              className="flex-1 border border-border rounded px-2 py-1 text-sm bg-cream focus:outline-none focus:border-accent"
+            />
+          </div>
+          <textarea
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            placeholder="Notes (optional)"
+            rows={2}
+            className="w-full border border-border rounded px-2 py-1.5 text-xs bg-cream focus:outline-none focus:border-accent resize-none"
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setOpen(false)} className="font-mono text-xs text-muted hover:text-ink">Cancel</button>
+            <button
+              type="submit"
+              disabled={!title.trim()}
+              className="bg-accent text-cream font-mono text-xs px-3 py-1 rounded hover:bg-accent/90 disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
+        </form>
+      ) : (
         <button
-          type="submit"
-          disabled={!title.trim() || loading}
-          className="bg-accent text-cream font-mono text-xs px-3 py-1 rounded hover:bg-accent/90 disabled:opacity-50"
+          onClick={() => setOpen(true)}
+          className="text-xs font-mono text-muted hover:text-accent transition-colors mt-2"
         >
-          {loading ? '…' : 'Add'}
+          + Add activity
         </button>
-      </div>
-    </form>
+      )}
+    </div>
   )
 }
 
@@ -191,27 +216,7 @@ export default function ItineraryTab({ destinations, onUpdate }: Props) {
   return (
     <div className="space-y-6">
       {destinations.map((dest) => (
-        <div key={dest.id}>
-          <div className="flex items-center gap-2 mb-3">
-            <h3 className="font-serif text-base text-ink">{dest.name}</h3>
-            {(dest.arrival || dest.departure) && (
-              <span className="font-mono text-xs text-muted">
-                {dest.arrival}{dest.arrival && dest.departure ? ' → ' : ''}{dest.departure}
-              </span>
-            )}
-          </div>
-
-          <div className="pl-3 border-l-2 border-border space-y-0.5">
-            {(dest.itineraryItems ?? []).length === 0 && (
-              <p className="text-xs text-muted font-mono">No activities yet</p>
-            )}
-            {(dest.itineraryItems ?? []).map((item) => (
-              <ItemRow key={item.id} item={item} onUpdate={onUpdate} />
-            ))}
-          </div>
-
-          <AddItemForm destinationId={dest.id} onAdd={onUpdate} />
-        </div>
+        <DestinationBlock key={dest.id} dest={dest} onUpdate={onUpdate} />
       ))}
     </div>
   )
