@@ -31,7 +31,9 @@ export const destinations = pgTable('destinations', {
   lat: real('lat'),
   lng: real('lng'),
   arrival: text('arrival'),
+  arrivalTime: text('arrival_time'),
   departure: text('departure'),
+  departureTime: text('departure_time'),
   notes: text('notes'),
   transportMode: text('transport_mode'),
   order: integer('order').notNull().default(0),
@@ -73,6 +75,7 @@ export const budgetItems = pgTable('budget_items', {
   bookingStatus: text('booking_status').notNull().default('pending'), // pending | in_progress | done
   deadline: text('deadline'), // YYYY-MM-DD, optional
   accommodationId: uuid('accommodation_id').references(() => accommodations.id, { onDelete: 'set null' }),
+  paidBy: text('paid_by'),
   paid: boolean('paid').notNull().default(false), // legacy, kept for compat
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })

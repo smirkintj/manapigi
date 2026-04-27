@@ -23,7 +23,9 @@ export type Destination = {
   lat: number | null
   lng: number | null
   arrival: string | null
+  arrivalTime: string | null
   departure: string | null
+  departureTime: string | null
   notes: string | null
   transportMode: string | null
   order: number
@@ -61,6 +63,7 @@ export type BudgetItem = {
   bookingStatus: string // DB returns string; cast to BookingStatus in component
   deadline: string | null
   accommodationId: string | null
+  paidBy?: string | null
 }
 
 export type Traveler = {

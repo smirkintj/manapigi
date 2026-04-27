@@ -110,6 +110,7 @@ function SortableStop({
   index,
   total,
   onDelete,
+  onUpdate,
   distKm,
   weather,
 }: {
@@ -117,11 +118,20 @@ function SortableStop({
   index: number
   total: number
   onDelete: (id: string) => void
+  onUpdate: () => void
   distKm?: number | null
   weather?: WeatherInfo | null
 }) {
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState(dest.name)
+  const [editArrival, setEditArrival] = useState(dest.arrival ?? '')
+  const [editArrivalTime, setEditArrivalTime] = useState(dest.arrivalTime ?? '')
+  const [editDeparture, setEditDeparture] = useState(dest.departure ?? '')
+  const [editDepartureTime, setEditDepartureTime] = useState(dest.departureTime ?? '')
+  const [editTransport, setEditTransport] = useState(dest.transportMode ?? '')
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: dest.id, disabled: dest.id.startsWith('temp-') })
+    useSortable({ id: dest.id, disabled: editing || dest.id.startsWith('temp-') })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -129,6 +139,35 @@ function SortableStop({
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 10 : undefined,
   }
+
+  const save = async () => {
+    await fetch(`/api/destinations/${dest.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: editName.trim() || dest.name,
+        country: dest.country,
+        arrival: editArrival || null,
+        arrivalTime: editArrivalTime || null,
+        departure: editDeparture || null,
+        departureTime: editDepartureTime || null,
+        transportMode: editTransport || null,
+        notes: dest.notes,
+        lat: dest.lat,
+        lng: dest.lng,
+        order: dest.order,
+      }),
+    })
+    setEditing(false)
+    onUpdate()
+  }
+
+  const arrivalLabel = dest.arrival
+    ? `${formatDate(dest.arrival)}${dest.arrivalTime ? ` ${dest.arrivalTime}` : ''}`
+    : null
+  const departureLabel = dest.departure
+    ? `${formatDate(dest.departure)}${dest.departureTime ? ` ${dest.departureTime}` : ''}`
+    : null
 
   return (
     <li ref={setNodeRef} style={style} className="relative group">
@@ -177,29 +216,95 @@ function SortableStop({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-1">
-            <p className="text-sm text-ink font-medium leading-snug break-words">{dest.name}</p>
-            {!dest.id.startsWith('temp-') && (
-              <button
-                onClick={() => onDelete(dest.id)}
-                className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-500 transition-all text-sm shrink-0 mt-0.5"
+          {editing ? (
+            <div className="space-y-2 pb-1">
+              <input
+                autoFocus
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Stop name"
+                className="w-full border border-border rounded-lg px-2.5 py-1.5 text-sm bg-card focus:outline-none focus:border-accent"
+              />
+              <div className="space-y-1">
+                <div className="flex gap-1.5">
+                  <DatePicker value={editArrival} onChange={setEditArrival} placeholder="Arrive" className="flex-1 text-xs" />
+                  <input
+                    type="time"
+                    value={editArrivalTime}
+                    onChange={(e) => setEditArrivalTime(e.target.value)}
+                    className="w-24 border border-border rounded-lg px-2 py-1.5 text-xs font-mono bg-card focus:outline-none focus:border-accent text-muted"
+                  />
+                </div>
+                <div className="flex gap-1.5">
+                  <DatePicker value={editDeparture} onChange={setEditDeparture} placeholder="Leave" className="flex-1 text-xs" />
+                  <input
+                    type="time"
+                    value={editDepartureTime}
+                    onChange={(e) => setEditDepartureTime(e.target.value)}
+                    className="w-24 border border-border rounded-lg px-2 py-1.5 text-xs font-mono bg-card focus:outline-none focus:border-accent text-muted"
+                  />
+                </div>
+              </div>
+              <select
+                value={editTransport}
+                onChange={(e) => setEditTransport(e.target.value)}
+                className="w-full border border-border rounded-lg px-2.5 py-1.5 text-xs bg-card focus:outline-none focus:border-accent text-muted"
               >
-                ×
-              </button>
-            )}
-          </div>
-          {(dest.arrival || dest.departure) && (
-            <p className="font-mono text-[10px] text-muted mt-0.5">
-              {[dest.arrival, dest.departure].filter(Boolean).map(formatDate).join(' → ')}
-            </p>
-          )}
-          {weather && (
-            <p className="font-mono text-[10px] text-muted mt-0.5">
-              {weather.emoji} {weather.min}°–{weather.max}°C{weather.historical ? ' (est)' : ''}
-            </p>
-          )}
-          {dest.id.startsWith('temp-') && (
-            <p className="font-mono text-[9px] text-muted/60 mt-0.5">saving…</p>
+                <option value="">How are you getting here?</option>
+                {TRANSPORT_MODES.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setEditing(false)}
+                  className="flex-1 border border-border rounded-lg py-1 text-xs font-mono text-muted hover:text-ink transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={save}
+                  className="flex-1 bg-accent text-cream rounded-lg py-1 text-xs font-mono hover:bg-accent/90 transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-start justify-between gap-1">
+                <p className="text-sm text-ink font-medium leading-snug break-words">{dest.name}</p>
+                {!dest.id.startsWith('temp-') && (
+                  <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-all shrink-0 mt-0.5">
+                    <button
+                      onClick={() => setEditing(true)}
+                      className="text-muted hover:text-ink text-[10px] font-mono"
+                    >
+                      edit
+                    </button>
+                    <button
+                      onClick={() => onDelete(dest.id)}
+                      className="text-muted hover:text-red-500 text-sm"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
+              {(arrivalLabel || departureLabel) && (
+                <p className="font-mono text-[10px] text-muted mt-0.5">
+                  {[arrivalLabel, departureLabel].filter(Boolean).join(' → ')}
+                </p>
+              )}
+              {weather && (
+                <p className="font-mono text-[10px] text-muted mt-0.5">
+                  {weather.emoji} {weather.min}°–{weather.max}°C{weather.historical ? ' (est)' : ''}
+                </p>
+              )}
+              {dest.id.startsWith('temp-') && (
+                <p className="font-mono text-[9px] text-muted/60 mt-0.5">saving…</p>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -306,7 +411,9 @@ export default function DestinationSidebar({ tripId, destinations, travelers, on
       lat: null,
       lng: null,
       arrival: arrival || null,
+      arrivalTime: null,
       departure: departure || null,
+      departureTime: null,
       notes: null,
       transportMode: transportMode || null,
       order: localDests.length,
@@ -365,6 +472,7 @@ export default function DestinationSidebar({ tripId, destinations, travelers, on
                   index={i}
                   total={localDests.length}
                   onDelete={handleDelete}
+                  onUpdate={onUpdate}
                   distKm={distKm}
                   weather={weatherMap[d.id] ?? null}
                 />

@@ -8,11 +8,12 @@ import BudgetTab from './BudgetTab'
 import NotesTab from './NotesTab'
 import StayTab from './StayTab'
 import OptionsTab from './OptionsTab'
+import SplitTab from './SplitTab'
 import { formatDate } from '@/lib/utils'
 
 const WorldMap = dynamic(() => import('@/components/map/WorldMap'), { ssr: false })
 
-const TABS = ['Map', 'Itinerary', 'Budget', 'Stay', 'Options', 'Notes'] as const
+const TABS = ['Map', 'Itinerary', 'Budget', 'Split', 'Stay', 'Options', 'Notes'] as const
 type Tab = (typeof TABS)[number]
 
 type Props = {
@@ -86,6 +87,15 @@ export default function TripTabs({ trip, onUpdate, onCurrencyChange, readOnly = 
             accommodations={trip.accommodations ?? []}
             onUpdate={readOnly ? noop : onUpdate}
             onCurrencyChange={readOnly ? noop : (onCurrencyChange ?? noop)}
+          />
+        )}
+
+        {active === 'Split' && (
+          <SplitTab
+            categories={trip.budgetCategories ?? []}
+            travelers={trip.travelers ?? []}
+            readOnly={readOnly}
+            onUpdate={readOnly ? noop : onUpdate}
           />
         )}
 
