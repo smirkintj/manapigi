@@ -66,6 +66,7 @@ function ItemRow({
   onUpdate: () => void
 }) {
   const [editing, setEditing] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const [label, setLabel] = useState(item.label)
   const [amount, setAmount] = useState(String(item.amount))
   const [currency, setCurrency] = useState(item.itemCurrency)
@@ -150,7 +151,11 @@ function ItemRow({
 
   return (
     <SwipeRow onEdit={() => setEditing(true)} onDelete={remove}>
-      <div className="flex items-center gap-2 px-3 py-2 border-t border-border hover:bg-cream/50 transition-colors">
+      <div
+        className="flex items-center gap-2 px-3 py-2 border-t border-border hover:bg-cream/50 transition-colors"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
         <StatusDot status={status} onClick={cycleStatus} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -167,15 +172,16 @@ function ItemRow({
           </div>
           {showMYR && <p className="font-mono text-[9px] text-muted">≈ RM {myrEquiv.toFixed(2)}</p>}
         </div>
-        {/* Amount fades on desktop hover; buttons overlay in its place */}
-        <div className="relative shrink-0">
-          <span className={`font-mono text-xs sm:group-hover:invisible ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
+        <div className="shrink-0 flex items-center justify-end">
+          {hovered ? (
+            <div className="hidden sm:flex gap-1.5">
+              <button onClick={() => setEditing(true)} className="text-muted hover:text-ink text-[10px] font-mono">edit</button>
+              <button onClick={remove} className="text-muted hover:text-red-500 text-[10px] font-mono">del</button>
+            </div>
+          ) : null}
+          <span className={`font-mono text-xs ${hovered ? 'sm:hidden' : ''} ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
             {formatAmount(eff, item.itemCurrency)}
           </span>
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 hidden sm:flex gap-1.5 transition-opacity">
-            <button onClick={() => setEditing(true)} className="text-muted hover:text-ink text-[10px] font-mono">edit</button>
-            <button onClick={remove} className="text-muted hover:text-red-500 text-[10px] font-mono">del</button>
-          </div>
         </div>
       </div>
     </SwipeRow>
