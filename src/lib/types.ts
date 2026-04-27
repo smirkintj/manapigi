@@ -78,6 +78,7 @@ export type Accommodation = {
   type: string | null
   checkIn: string | null
   checkOut: string | null
+  notes: string | null
   order: number
   rooms?: AccommodationRoom[]
 }

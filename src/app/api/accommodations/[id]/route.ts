@@ -8,11 +8,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const { name, type, destinationId, checkIn, checkOut } = await req.json()
+  const { name, type, destinationId, checkIn, checkOut, notes } = await req.json()
 
   const [row] = await db
     .update(accommodations)
-    .set({ name, type, destinationId, checkIn, checkOut })
+    .set({ name, type, destinationId, checkIn, checkOut, notes })
     .where(eq(accommodations.id, id))
     .returning()
 

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Destination, Traveler } from '@/lib/types'
-import { formatDate, TRANSPORT_MODES } from '@/lib/utils'
+import { formatDate, TRANSPORT_MODES, haversineKm, wmoToEmoji } from '@/lib/utils'
 import DatePicker from '@/components/ui/DatePicker'
 import {
   DndContext,
@@ -103,16 +103,22 @@ function TravelersSection({
   )
 }
 
+type WeatherInfo = { emoji: string; min: number; max: number; historical: boolean }
+
 function SortableStop({
   dest,
   index,
   total,
   onDelete,
+  distKm,
+  weather,
 }: {
   dest: Destination
   index: number
   total: number
   onDelete: (id: string) => void
+  distKm?: number | null
+  weather?: WeatherInfo | null
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: dest.id, disabled: dest.id.startsWith('temp-') })
@@ -129,12 +135,20 @@ function SortableStop({
       {index > 0 && (
         <div className="flex items-center gap-1.5 mb-2 pl-[10px]">
           <div className="w-px h-3 bg-border" />
-          {dest.transportMode && (
-            <span className="font-mono text-[10px] text-muted bg-card border border-border rounded-full px-2 py-0.5">
-              {TRANSPORT_MODES.find((m) => m.value === dest.transportMode)?.label ?? dest.transportMode}
-            </span>
+          {(dest.transportMode || distKm != null) ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {dest.transportMode && (
+                <span className="font-mono text-[10px] text-muted bg-card border border-border rounded-full px-2 py-0.5">
+                  {TRANSPORT_MODES.find((m) => m.value === dest.transportMode)?.label ?? dest.transportMode}
+                </span>
+              )}
+              {distKm != null && (
+                <span className="font-mono text-[10px] text-muted">~{Math.round(distKm).toLocaleString()} km</span>
+              )}
+            </div>
+          ) : (
+            <div className="w-px h-3 bg-border" />
           )}
-          {!dest.transportMode && <div className="w-px h-3 bg-border" />}
         </div>
       )}
 
@@ -179,6 +193,11 @@ function SortableStop({
               {[dest.arrival, dest.departure].filter(Boolean).map(formatDate).join(' → ')}
             </p>
           )}
+          {weather && (
+            <p className="font-mono text-[10px] text-muted mt-0.5">
+              {weather.emoji} {weather.min}°–{weather.max}°C{weather.historical ? ' (est)' : ''}
+            </p>
+          )}
           {dest.id.startsWith('temp-') && (
             <p className="font-mono text-[9px] text-muted/60 mt-0.5">saving…</p>
           )}
@@ -202,8 +221,52 @@ export default function DestinationSidebar({ tripId, destinations, travelers, on
   const [arrival, setArrival] = useState('')
   const [departure, setDeparture] = useState('')
   const [transportMode, setTransportMode] = useState('')
+  const [weatherMap, setWeatherMap] = useState<Record<string, WeatherInfo>>({})
+  const geocodingRef = useRef<Set<string>>(new Set())
+  const weatherFetchedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => { setLocalDests(destinations) }, [destinations])
+
+  useEffect(() => {
+    localDests.forEach((dest) => {
+      if (dest.lat != null || dest.id.startsWith('temp-') || geocodingRef.current.has(dest.id)) return
+      geocodingRef.current.add(dest.id)
+      fetch(`/api/geocode?q=${encodeURIComponent(dest.name)}`)
+        .then((r) => r.json())
+        .then((data: Array<{ lat: string; lon: string }>) => {
+          if (!data?.[0]) return
+          const lat = parseFloat(data[0].lat)
+          const lng = parseFloat(data[0].lon)
+          setLocalDests((prev) => prev.map((d) => d.id === dest.id ? { ...d, lat, lng } : d))
+          fetch(`/api/destinations/${dest.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: dest.name, country: dest.country, arrival: dest.arrival, departure: dest.departure, notes: dest.notes, lat, lng, order: dest.order }),
+          })
+        })
+        .catch(() => {})
+    })
+  }, [localDests])
+
+  useEffect(() => {
+    localDests.forEach((dest) => {
+      if (!dest.lat || !dest.lng || !dest.arrival || weatherFetchedRef.current.has(dest.id)) return
+      weatherFetchedRef.current.add(dest.id)
+      fetch(`/api/weather?lat=${dest.lat}&lng=${dest.lng}&date=${dest.arrival}`)
+        .then((r) => r.json())
+        .then((data) => {
+          const code = data?.daily?.weathercode?.[0]
+          const max = data?.daily?.temperature_2m_max?.[0]
+          const min = data?.daily?.temperature_2m_min?.[0]
+          if (code == null || max == null || min == null) return
+          setWeatherMap((prev) => ({
+            ...prev,
+            [dest.id]: { emoji: wmoToEmoji(code), min: Math.round(min), max: Math.round(max), historical: !!data.historical },
+          }))
+        })
+        .catch(() => {})
+    })
+  }, [localDests])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -289,15 +352,24 @@ export default function DestinationSidebar({ tripId, destinations, travelers, on
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={localDests.map((d) => d.id)} strategy={verticalListSortingStrategy}>
             <ol className="px-4">
-              {localDests.map((d, i) => (
+              {localDests.map((d, i) => {
+                const prev = localDests[i - 1]
+                const distKm =
+                  i > 0 && prev?.lat != null && prev?.lng != null && d.lat != null && d.lng != null
+                    ? haversineKm(prev.lat, prev.lng, d.lat, d.lng)
+                    : null
+                return (
                 <SortableStop
                   key={d.id}
                   dest={d}
                   index={i}
                   total={localDests.length}
                   onDelete={handleDelete}
+                  distKm={distKm}
+                  weather={weatherMap[d.id] ?? null}
                 />
-              ))}
+              )
+              })}
             </ol>
           </SortableContext>
         </DndContext>

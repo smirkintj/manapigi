@@ -84,6 +84,8 @@ function RoomRow({ room, onUpdate }: { room: AccommodationRoom; onUpdate: () => 
   )
 }
 
+const STATUS_DOT: Record<string, string> = { done: '✓', in_progress: '◑', pending: '○' }
+
 function AccommodationCard({
   acc,
   destinations,
@@ -100,14 +102,33 @@ function AccommodationCard({
   const [guests, setGuests] = useState('')
   const [price, setPrice] = useState('')
   const [loading, setLoading] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState(acc.name)
+  const [editType, setEditType] = useState(acc.type ?? 'hotel')
+  const [editDestId, setEditDestId] = useState(acc.destinationId ?? '')
+  const [editCheckIn, setEditCheckIn] = useState(acc.checkIn ?? '')
+  const [editCheckOut, setEditCheckOut] = useState(acc.checkOut ?? '')
+  const [editNotes, setEditNotes] = useState(acc.notes ?? '')
 
   const linkedDest = destinations.find((d) => d.id === acc.destinationId)
   const rooms = acc.rooms ?? []
   const totalPrice = rooms.reduce((s, r) => s + (r.price ?? 0), 0)
-  const STATUS_DOT: Record<string, string> = {
-    done: '✓',
-    in_progress: '◑',
-    pending: '○',
+
+  const saveEdit = async () => {
+    await fetch(`/api/accommodations/${acc.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: editName.trim() || acc.name,
+        type: editType,
+        destinationId: editDestId || null,
+        checkIn: editCheckIn || null,
+        checkOut: editCheckOut || null,
+        notes: editNotes.trim() || null,
+      }),
+    })
+    setEditing(false)
+    onUpdate()
   }
 
   const addRoom = async (e: React.FormEvent) => {
@@ -135,39 +156,89 @@ function AccommodationCard({
 
   return (
     <div className="border border-border rounded-xl overflow-hidden bg-card">
-      <div className="flex items-start justify-between px-4 py-3.5 border-b border-border">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-accent-light border border-accent/20 flex items-center justify-center shrink-0 mt-0.5">
-            <span className="font-mono text-[10px] font-bold text-accent uppercase">{(acc.type ?? 'stay')[0]}</span>
+      {editing ? (
+        <div className="px-4 py-3.5 space-y-2.5 border-b border-border">
+          <div className="flex gap-2">
+            <input
+              autoFocus
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Accommodation name"
+              className="flex-1 border border-border rounded-lg px-2.5 py-1.5 text-sm bg-cream focus:outline-none focus:border-accent"
+            />
+            <select
+              value={editType}
+              onChange={(e) => setEditType(e.target.value)}
+              className="border border-border rounded-lg px-2.5 py-1.5 text-sm bg-cream focus:outline-none focus:border-accent"
+            >
+              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
           </div>
-          <div>
-            <p className="font-medium text-ink text-sm">{acc.name}</p>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <span className="font-mono text-xs text-muted capitalize">{acc.type}</span>
-              {linkedDest && (
-                <>
-                  <span className="text-border">·</span>
-                  <span className="font-mono text-xs text-muted">{linkedDest.name}</span>
-                </>
-              )}
-              {(acc.checkIn || acc.checkOut) && (
-                <>
-                  <span className="text-border">·</span>
-                  <span className="font-mono text-xs text-muted">
-                    {[acc.checkIn, acc.checkOut].filter(Boolean).map(formatDate).join(' → ')}
-                  </span>
-                </>
+          {destinations.length > 0 && (
+            <select
+              value={editDestId}
+              onChange={(e) => setEditDestId(e.target.value)}
+              className="w-full border border-border rounded-lg px-2.5 py-1.5 text-sm bg-cream focus:outline-none focus:border-accent text-muted"
+            >
+              <option value="">No stop linked</option>
+              {destinations.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          )}
+          <div className="flex gap-2">
+            <DatePicker value={editCheckIn} onChange={setEditCheckIn} placeholder="Check-in" className="flex-1 text-sm" />
+            <DatePicker value={editCheckOut} onChange={setEditCheckOut} placeholder="Check-out" className="flex-1 text-sm" />
+          </div>
+          <textarea
+            value={editNotes}
+            onChange={(e) => setEditNotes(e.target.value)}
+            placeholder="Notes — address, wifi password, contact…"
+            rows={3}
+            className="w-full border border-border rounded-lg px-2.5 py-1.5 text-sm bg-cream focus:outline-none focus:border-accent resize-none"
+          />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setEditing(false)} className="font-mono text-xs text-muted hover:text-ink">Cancel</button>
+            <button onClick={saveEdit} className="bg-accent text-cream font-mono text-xs px-3 py-1.5 rounded-lg hover:bg-accent/90">Save</button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start justify-between px-4 py-3.5 border-b border-border">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-accent-light border border-accent/20 flex items-center justify-center shrink-0 mt-0.5">
+              <span className="font-mono text-[10px] font-bold text-accent uppercase">{(acc.type ?? 'stay')[0]}</span>
+            </div>
+            <div>
+              <p className="font-medium text-ink text-sm">{acc.name}</p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="font-mono text-xs text-muted capitalize">{acc.type}</span>
+                {linkedDest && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="font-mono text-xs text-muted">{linkedDest.name}</span>
+                  </>
+                )}
+                {(acc.checkIn || acc.checkOut) && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="font-mono text-xs text-muted">
+                      {[acc.checkIn, acc.checkOut].filter(Boolean).map(formatDate).join(' → ')}
+                    </span>
+                  </>
+                )}
+              </div>
+              {acc.notes && (
+                <p className="text-xs text-muted mt-1.5 whitespace-pre-wrap">{acc.notes}</p>
               )}
             </div>
           </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {totalPrice > 0 && (
+              <span className="font-mono text-sm text-ink font-semibold">RM {totalPrice.toFixed(2)}</span>
+            )}
+            <button onClick={() => setEditing(true)} className="font-mono text-[10px] text-muted hover:text-ink transition-colors">edit</button>
+            <button onClick={remove} className="text-muted hover:text-red-500 text-sm transition-colors">×</button>
+          </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {totalPrice > 0 && (
-            <span className="font-mono text-sm text-ink font-semibold">RM {totalPrice.toFixed(2)}</span>
-          )}
-          <button onClick={remove} className="text-muted hover:text-red-500 text-sm transition-colors">×</button>
-        </div>
-      </div>
+      )}
 
       {linkedItems.length > 0 && (
         <div className="px-4 py-2 border-b border-border bg-accent-light/10">

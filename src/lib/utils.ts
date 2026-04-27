@@ -48,3 +48,26 @@ export type TransportMode = (typeof TRANSPORT_MODES)[number]['value']
 export function transportIcon(mode: string | null): string {
   return TRANSPORT_MODES.find((m) => m.value === mode)?.icon ?? '→'
 }
+
+export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = ((lat2 - lat1) * Math.PI) / 180
+  const dLng = ((lng2 - lng1) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.asin(Math.sqrt(a))
+}
+
+export function wmoToEmoji(code: number): string {
+  if (code === 0) return '☀️'
+  if (code <= 2) return '⛅'
+  if (code <= 3) return '☁️'
+  if (code <= 49) return '🌫️'
+  if (code <= 59) return '🌦️'
+  if (code <= 69) return '🌧️'
+  if (code <= 79) return '🌨️'
+  if (code <= 84) return '🌧️'
+  if (code <= 99) return '⛈️'
+  return '🌡️'
+}

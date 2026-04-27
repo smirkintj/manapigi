@@ -98,6 +98,7 @@ export const accommodations = pgTable('accommodations', {
   type: text('type').default('hotel'),
   checkIn: text('check_in'),
   checkOut: text('check_out'),
+  notes: text('notes'),
   order: integer('order').notNull().default(0),
 })
 
