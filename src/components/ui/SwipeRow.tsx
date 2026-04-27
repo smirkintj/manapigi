@@ -45,9 +45,9 @@ export default function SwipeRow({ onEdit, onDelete, children, className = '' }:
         </button>
       </div>
 
-      {/* Sliding content layer */}
+      {/* Sliding content layer — bg-inherit covers the absolute buttons behind */}
       <div
-        className="relative transition-transform duration-200 ease-out"
+        className="relative transition-transform duration-200 ease-out bg-inherit"
         style={{ transform: swiped ? 'translateX(-112px)' : 'translateX(0)' }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}

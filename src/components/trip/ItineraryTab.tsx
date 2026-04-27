@@ -47,16 +47,21 @@ function ItemRow({ item, onUpdate }: { item: ItineraryItem; onUpdate: () => void
   }
 
   return (
-    <div className="flex items-start gap-3 group py-1.5">
+    <div
+      className="flex items-start gap-3 py-1.5 cursor-pointer hover:bg-accent-light/20 -mx-4 px-4 rounded transition-colors"
+      onClick={() => setEditing(true)}
+    >
       {item.time && <span className="font-mono text-xs text-muted w-12 pt-0.5 shrink-0">{item.time}</span>}
       <div className="flex-1 min-w-0">
         <p className="text-sm text-ink">{item.title}</p>
         {item.description && <p className="text-xs text-muted mt-0.5">{item.description}</p>}
       </div>
-      <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity shrink-0">
-        <button onClick={() => setEditing(true)} className="text-muted hover:text-ink text-xs font-mono">edit</button>
-        <button onClick={remove} className="text-muted hover:text-red-500 text-xs font-mono">del</button>
-      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); remove() }}
+        className="text-muted hover:text-red-500 text-xs font-mono shrink-0 pt-0.5"
+      >
+        ×
+      </button>
     </div>
   )
 }

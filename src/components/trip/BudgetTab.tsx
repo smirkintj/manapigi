@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import type { BudgetCategory, BudgetItem, BookingStatus, Accommodation } from '@/lib/types'
 import { formatAmount, formatDate, CURRENCIES, CURRENCY_SYMBOLS } from '@/lib/utils'
 import DatePicker from '@/components/ui/DatePicker'
-import SwipeRow from '@/components/ui/SwipeRow'
 
 type Rates = Record<string, number>
 
@@ -150,41 +149,51 @@ function ItemRow({
   }
 
   return (
-    <SwipeRow onEdit={() => setEditing(true)} onDelete={remove}>
-      <div
-        className="flex items-center gap-2 px-3 py-2 border-t border-border hover:bg-cream/50 transition-colors"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        <StatusDot status={status} onClick={cycleStatus} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className={`text-xs ${status === 'done' ? 'line-through text-muted' : 'text-ink'}`}>{item.label}</span>
-            {item.perPax && travelerCount > 1 && (
-              <span className="font-mono text-[9px] text-muted border border-border rounded px-1">×{travelerCount}</span>
-            )}
-            {item.deadline && (
-              <span className="font-mono text-[9px] text-muted border border-border rounded px-1">by {formatDate(item.deadline)}</span>
-            )}
-            {linkedStay && (
-              <span className="font-mono text-[9px] text-accent/70 border border-accent/20 rounded px-1">{linkedStay.name}</span>
-            )}
-          </div>
-          {showMYR && <p className="font-mono text-[9px] text-muted">≈ RM {myrEquiv.toFixed(2)}</p>}
+    <div
+      className="flex items-center gap-2 px-3 py-2 border-t border-border bg-card hover:bg-cream/50 transition-colors"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <StatusDot status={status} onClick={cycleStatus} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`text-xs ${status === 'done' ? 'line-through text-muted' : 'text-ink'}`}>{item.label}</span>
+          {item.perPax && travelerCount > 1 && (
+            <span className="font-mono text-[9px] text-muted border border-border rounded px-1">×{travelerCount}</span>
+          )}
+          {item.deadline && (
+            <span className="font-mono text-[9px] text-muted border border-border rounded px-1">by {formatDate(item.deadline)}</span>
+          )}
+          {linkedStay && (
+            <span className="font-mono text-[9px] text-accent/70 border border-accent/20 rounded px-1">{linkedStay.name}</span>
+          )}
         </div>
-        <div className="shrink-0 flex items-center justify-end">
-          {hovered ? (
-            <div className="hidden sm:flex gap-1.5">
-              <button onClick={() => setEditing(true)} className="text-muted hover:text-ink text-[10px] font-mono">edit</button>
-              <button onClick={remove} className="text-muted hover:text-red-500 text-[10px] font-mono">del</button>
-            </div>
-          ) : null}
-          <span className={`font-mono text-xs ${hovered ? 'sm:hidden' : ''} ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
+        {showMYR && <p className="font-mono text-[9px] text-muted">≈ RM {myrEquiv.toFixed(2)}</p>}
+      </div>
+
+      {/* Desktop: hover swaps amount for edit/del */}
+      <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+        {hovered ? (
+          <>
+            <button onClick={() => setEditing(true)} className="font-mono text-[10px] text-muted hover:text-ink">edit</button>
+            <button onClick={remove} className="font-mono text-[10px] text-muted hover:text-red-500">del</button>
+          </>
+        ) : (
+          <span className={`font-mono text-xs ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
             {formatAmount(eff, item.itemCurrency)}
           </span>
-        </div>
+        )}
       </div>
-    </SwipeRow>
+
+      {/* Mobile: amount + icon buttons always visible */}
+      <div className="flex sm:hidden items-center gap-2 shrink-0">
+        <span className={`font-mono text-xs ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
+          {formatAmount(eff, item.itemCurrency)}
+        </span>
+        <button onClick={() => setEditing(true)} className="text-muted text-sm leading-none">✎</button>
+        <button onClick={remove} className="text-muted hover:text-red-500 text-sm leading-none">×</button>
+      </div>
+    </div>
   )
 }
 
