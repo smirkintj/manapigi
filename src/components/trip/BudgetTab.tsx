@@ -1,23 +1,35 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { BudgetCategory, BudgetItem, BookingStatus, Accommodation } from '@/lib/types'
+import type { BudgetCategory, BudgetItem, BookingStatus, Accommodation, Traveler } from '@/lib/types'
 import { formatAmount, formatDate, CURRENCIES, CURRENCY_SYMBOLS } from '@/lib/utils'
 import DatePicker from '@/components/ui/DatePicker'
 
 type Rates = Record<string, number>
+
+function getSharers(item: BudgetItem, travelers: Traveler[]): string[] {
+  if (!item.sharedWith) return travelers.map((t) => t.name)
+  try {
+    const parsed = JSON.parse(item.sharedWith) as string[]
+    return parsed.filter((n) => travelers.some((t) => t.name === n))
+  } catch {
+    return travelers.map((t) => t.name)
+  }
+}
 
 function toMYR(amount: number, currency: string, rates: Rates): number {
   if (currency === 'MYR' || !rates[currency]) return amount
   return amount / rates[currency]
 }
 
-function effectiveAmount(item: BudgetItem, travelerCount: number): number {
-  return item.perPax ? item.amount * travelerCount : item.amount
+function effectiveAmount(item: BudgetItem, travelers: Traveler[]): number {
+  const n = getSharers(item, travelers).length || 1
+  return item.perPax ? item.amount * n : item.amount
 }
 
-function perPersonAmount(item: BudgetItem, travelerCount: number): number {
-  return item.perPax ? item.amount : item.amount / Math.max(1, travelerCount)
+function perPersonAmount(item: BudgetItem, travelers: Traveler[]): number {
+  const n = getSharers(item, travelers).length || 1
+  return item.perPax ? item.amount : item.amount / n
 }
 
 const STATUS_NEXT: Record<BookingStatus, BookingStatus> = {
@@ -57,13 +69,13 @@ function StatusDot({ status, onClick }: { status: BookingStatus; onClick?: () =>
 
 function ItemRow({
   item,
-  travelerCount,
+  travelers,
   rates,
   accommodations,
   onUpdate,
 }: {
   item: BudgetItem
-  travelerCount: number
+  travelers: Traveler[]
   rates: Rates
   accommodations: Accommodation[]
   onUpdate: () => void
@@ -76,12 +88,32 @@ function ItemRow({
   const [perPax, setPerPax] = useState(item.perPax)
   const [deadline, setDeadline] = useState(item.deadline ?? '')
   const [accommodationId, setAccommodationId] = useState(item.accommodationId ?? '')
+  const [localSharedWith, setLocalSharedWith] = useState<string | null>(item.sharedWith ?? null)
 
   const status = (item.bookingStatus ?? 'pending') as BookingStatus
-  const ppa = perPersonAmount(item, travelerCount)
+  const ppa = perPersonAmount(item, travelers)
   const myrEquiv = toMYR(ppa, item.itemCurrency, rates)
   const showMYR = item.itemCurrency !== 'MYR' && Object.keys(rates).length > 0
   const linkedStay = accommodations.find((a) => a.id === item.accommodationId)
+  const rowSharers = item.sharedWith ? getSharers(item, travelers) : []
+
+  const editSharers = localSharedWith
+    ? (() => { try { return JSON.parse(localSharedWith) as string[] } catch { return travelers.map(t => t.name) } })()
+    : travelers.map(t => t.name)
+
+  const toggleSharer = (name: string) => {
+    const current = localSharedWith
+      ? (() => { try { return JSON.parse(localSharedWith) as string[] } catch { return travelers.map(t => t.name) } })()
+      : travelers.map(t => t.name)
+    let next: string[]
+    if (current.includes(name)) {
+      next = current.filter(n => n !== name)
+      if (next.length === 0) return
+    } else {
+      next = [...current, name]
+    }
+    setLocalSharedWith(next.length === travelers.length ? null : JSON.stringify(next))
+  }
 
   const cycleStatus = async () => {
     if (item.id.startsWith('temp-')) return
@@ -93,6 +125,7 @@ function ItemRow({
         label: item.label, amount: item.amount, itemCurrency: item.itemCurrency,
         perPax: item.perPax, bookingStatus: next, deadline: item.deadline,
         accommodationId: item.accommodationId,
+        paidBy: item.paidBy ?? null, sharedWith: item.sharedWith ?? null,
       }),
     })
     onUpdate()
@@ -106,6 +139,7 @@ function ItemRow({
         label, amount: parseFloat(amount) || 0, itemCurrency: currency,
         perPax, bookingStatus: status, deadline: deadline || null,
         accommodationId: accommodationId || null,
+        paidBy: item.paidBy ?? null, sharedWith: localSharedWith,
       }),
     })
     setEditing(false)
@@ -137,6 +171,29 @@ function ItemRow({
             per pax
           </label>
         </div>
+        {travelers.length > 1 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-mono text-[10px] text-muted">shared with:</span>
+            {travelers.map((t) => {
+              const included = editSharers.includes(t.name)
+              return (
+                <button key={t.id} type="button" onClick={() => toggleSharer(t.name)}
+                  title={t.name}
+                  className={`w-6 h-6 rounded-full text-[9px] font-mono font-bold transition-colors ${
+                    included ? 'bg-accent text-cream' : 'bg-border text-muted hover:bg-accent/20'
+                  }`}>
+                  {t.name[0].toUpperCase()}
+                </button>
+              )
+            })}
+            {localSharedWith !== null && (
+              <button type="button" onClick={() => setLocalSharedWith(null)}
+                className="font-mono text-[9px] text-muted hover:text-accent transition-colors">
+                all
+              </button>
+            )}
+          </div>
+        )}
         {accommodations.length > 0 && (
           <select value={accommodationId} onChange={(e) => setAccommodationId(e.target.value)}
             className="w-full border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent text-muted">
@@ -172,10 +229,20 @@ function ItemRow({
             <span className="font-mono text-[9px] text-accent/70 border border-accent/20 rounded px-1">{linkedStay.name}</span>
           )}
         </div>
-        {showMYR && <p className="font-mono text-[9px] text-muted">≈ RM {myrEquiv.toFixed(2)}</p>}
+        <div className="flex items-center gap-1 mt-0.5">
+          {showMYR && <p className="font-mono text-[9px] text-muted">≈ RM {myrEquiv.toFixed(2)}</p>}
+          {rowSharers.length > 0 && (
+            <div className="flex items-center gap-0.5">
+              {rowSharers.map(name => (
+                <span key={name} className="w-3.5 h-3.5 rounded-full bg-accent/20 text-[7px] font-mono text-accent font-bold flex items-center justify-center">
+                  {name[0].toUpperCase()}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Desktop: hover swaps amount for edit/del */}
       <div className="hidden sm:flex items-center gap-1.5 shrink-0">
         {hovered ? (
           <>
@@ -189,7 +256,6 @@ function ItemRow({
         )}
       </div>
 
-      {/* Mobile: amount + icon buttons always visible */}
       <div className="flex sm:hidden items-center gap-2 shrink-0">
         <span className={`font-mono text-xs ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
           {formatAmount(ppa, item.itemCurrency)}
@@ -206,14 +272,14 @@ function ItemRow({
 function CategoryCard({
   category,
   defaultCurrency,
-  travelerCount,
+  travelers,
   rates,
   accommodations,
   onUpdate,
 }: {
   category: BudgetCategory
   defaultCurrency: string
-  travelerCount: number
+  travelers: Traveler[]
   rates: Rates
   accommodations: Accommodation[]
   onUpdate: () => void
@@ -229,9 +295,18 @@ function CategoryCard({
 
   useEffect(() => { setLocalItems(category.items ?? []) }, [category.items])
 
-  const myrPerPerson = localItems.reduce(
-    (s, i) => s + toMYR(perPersonAmount(i, travelerCount), i.itemCurrency, rates), 0
-  )
+  const hasMixedSharers = travelers.length > 1 && localItems.some(item => item.sharedWith !== null)
+
+  const myrPerPerson = travelers.length > 0
+    ? travelers.reduce((sum, t) => {
+        return sum + localItems.reduce((s, item) => {
+          const sharers = getSharers(item, travelers)
+          if (!sharers.includes(t.name)) return s
+          const perShare = item.perPax ? item.amount : item.amount / sharers.length
+          return s + toMYR(perShare, item.itemCurrency, rates)
+        }, 0)
+      }, 0) / travelers.length
+    : localItems.reduce((s, i) => s + toMYR(perPersonAmount(i, travelers), i.itemCurrency, rates), 0)
 
   const addItem = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -279,7 +354,10 @@ function CategoryCard({
           <span className="font-medium text-xs text-ink">{category.name}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs text-ink font-semibold">RM {myrPerPerson.toFixed(0)}<span className="text-muted font-normal">/pax</span></span>
+          <span className="font-mono text-xs text-ink font-semibold">
+            {hasMixedSharers && <span className="text-muted text-[10px] mr-0.5">~</span>}
+            RM {myrPerPerson.toFixed(0)}<span className="text-muted font-normal">/pax</span>
+          </span>
           <button onClick={deleteCategory} className="text-muted hover:text-red-500 text-sm transition-colors leading-none">×</button>
         </div>
       </div>
@@ -288,7 +366,7 @@ function CategoryCard({
         <ItemRow
           key={item.id}
           item={item}
-          travelerCount={travelerCount}
+          travelers={travelers}
           rates={rates}
           accommodations={accommodations}
           onUpdate={onUpdate}
@@ -344,13 +422,13 @@ type TrackedItem = BudgetItem & { categoryName: string }
 function PurchaseTracker({
   categories,
   accommodations,
-  travelerCount,
+  travelers,
   rates,
   onUpdate,
 }: {
   categories: BudgetCategory[]
   accommodations: Accommodation[]
-  travelerCount: number
+  travelers: Traveler[]
   rates: Rates
   onUpdate: () => void
 }) {
@@ -378,6 +456,7 @@ function PurchaseTracker({
         label: item.label, amount: item.amount, itemCurrency: item.itemCurrency,
         perPax: item.perPax, bookingStatus: next, deadline: item.deadline,
         accommodationId: item.accommodationId,
+        paidBy: item.paidBy ?? null, sharedWith: item.sharedWith ?? null,
       }),
     })
     onUpdate()
@@ -391,7 +470,7 @@ function PurchaseTracker({
       <div className="divide-y divide-border">
         {tracked.map((item) => {
           const status = (item.bookingStatus ?? 'pending') as BookingStatus
-          const ppa = perPersonAmount(item, travelerCount)
+          const ppa = perPersonAmount(item, travelers)
           const myrEquiv = toMYR(ppa, item.itemCurrency, rates)
           const showMYR = item.itemCurrency !== 'MYR' && Object.keys(rates).length > 0
           const linkedStay = accommodations.find((a) => a.id === item.accommodationId)
@@ -436,14 +515,14 @@ type Props = {
   tripId: string
   tripCurrency: string
   categories: BudgetCategory[]
-  travelerCount: number
+  travelers: Traveler[]
   accommodations: Accommodation[]
   onUpdate: () => void
   onCurrencyChange: (currency: string) => void
 }
 
 export default function BudgetTab({
-  tripId, tripCurrency, categories, travelerCount, accommodations, onUpdate, onCurrencyChange,
+  tripId, tripCurrency, categories, travelers, accommodations, onUpdate, onCurrencyChange,
 }: Props) {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
@@ -454,11 +533,28 @@ export default function BudgetTab({
     fetch('/api/exchange-rate').then((r) => r.json()).then(setRates).catch(() => {})
   }, [])
 
+  const travelerCount = Math.max(1, travelers.length)
   const allItems = categories.flatMap((c) => c.items ?? [])
+
   const myrTotal = allItems.reduce(
-    (s, i) => s + toMYR(effectiveAmount(i, travelerCount), i.itemCurrency, rates), 0
+    (s, i) => s + toMYR(effectiveAmount(i, travelers), i.itemCurrency, rates), 0
   )
-  const myrPerPerson = travelerCount > 0 ? myrTotal / travelerCount : myrTotal
+
+  const travelerCosts = travelers.map((t) => ({
+    name: t.name,
+    cost: allItems.reduce((s, item) => {
+      const sharers = getSharers(item, travelers)
+      if (!sharers.includes(t.name)) return s
+      const perShare = item.perPax ? item.amount : item.amount / sharers.length
+      return s + toMYR(perShare, item.itemCurrency, rates)
+    }, 0),
+  }))
+
+  const costs = travelerCosts.map(tc => tc.cost)
+  const avgPerPerson = costs.length > 0
+    ? costs.reduce((a, b) => a + b, 0) / costs.length
+    : myrTotal / travelerCount
+  const costsVary = travelers.length > 1 && costs.length > 1 && costs.some(c => Math.abs(c - costs[0]) > 0.01)
 
   const addCategory = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -487,19 +583,31 @@ export default function BudgetTab({
   return (
     <div>
       {/* Summary */}
-      <div className="flex items-end justify-between gap-4 pb-5 mb-5 border-b border-border">
+      <div className="flex items-start justify-between gap-4 pb-5 mb-5 border-b border-border">
         <div>
-          <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">Per person (RM)</p>
+          <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">
+            {costsVary ? 'Avg per person (RM)' : 'Per person (RM)'}
+          </p>
           <p className="font-serif text-4xl text-ink">
-            {myrPerPerson.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {costsVary && <span className="font-sans text-2xl text-muted mr-0.5">~</span>}
+            {avgPerPerson.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           {travelerCount > 1 && myrTotal > 0 && (
             <p className="font-mono text-xs text-muted mt-1">
               RM {myrTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} total
             </p>
           )}
+          {costsVary && (
+            <div className="mt-2 space-y-0.5">
+              {travelerCosts.map(tc => (
+                <p key={tc.name} className="font-mono text-[10px] text-muted">
+                  {tc.name}: RM {tc.cost.toFixed(2)}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <span className="font-mono text-xs text-muted">Default currency</span>
           <select value={tripCurrency} onChange={(e) => saveCurrency(e.target.value)}
             className="border border-border rounded-lg px-2.5 py-1.5 text-xs font-mono bg-cream focus:outline-none focus:border-accent">
@@ -512,7 +620,7 @@ export default function BudgetTab({
       <PurchaseTracker
         categories={categories}
         accommodations={accommodations}
-        travelerCount={travelerCount}
+        travelers={travelers}
         rates={rates}
         onUpdate={onUpdate}
       />
@@ -525,7 +633,7 @@ export default function BudgetTab({
               key={cat.id}
               category={cat}
               defaultCurrency={tripCurrency}
-              travelerCount={travelerCount}
+              travelers={travelers}
               rates={rates}
               accommodations={accommodations}
               onUpdate={onUpdate}

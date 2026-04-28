@@ -109,29 +109,25 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
           <div className="px-4 py-2.5 border-b border-border">
             <p className="font-medium text-sm text-ink">Cost per person</p>
           </div>
-          <div className="px-4 py-3 space-y-2.5">
+          <div className="grid grid-cols-2 gap-px bg-border">
             {travelers.map((t) => {
               const cost = personCosts[t.name] ?? 0
-              const maxCost = Math.max(...travelers.map((x) => personCosts[x.name] ?? 0), 0.01)
               return (
-                <div key={t.id}>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-accent-light border border-accent/30 flex items-center justify-center shrink-0">
-                        <span className="font-mono text-[9px] text-accent font-bold">{t.name[0].toUpperCase()}</span>
-                      </div>
-                      <span className="text-sm text-ink">{t.name}</span>
+                <div key={t.id} className="bg-card px-4 py-4">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div className="w-5 h-5 rounded-full bg-accent-light border border-accent/30 flex items-center justify-center shrink-0">
+                      <span className="font-mono text-[9px] text-accent font-bold">{t.name[0].toUpperCase()}</span>
                     </div>
-                    <span className="font-mono text-sm text-ink font-medium">{cost.toFixed(2)}</span>
+                    <span className="font-mono text-[10px] text-muted uppercase tracking-wider truncate">{t.name}</span>
                   </div>
-                  <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                    <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${(cost / maxCost) * 100}%` }} />
-                  </div>
+                  <p className="font-serif text-3xl text-ink">
+                    {cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
                 </div>
               )
             })}
           </div>
-          <p className="px-4 pb-3 font-mono text-[10px] text-muted">Amounts in original item currency</p>
+          <p className="px-4 py-2.5 font-mono text-[10px] text-muted border-t border-border">Amounts in original item currency</p>
         </div>
       )}
 

@@ -27,7 +27,6 @@ export default function TripTabs({ trip, onUpdate, onCurrencyChange, readOnly = 
   const [active, setActive] = useState<Tab>('Map')
 
   const noop = () => {}
-  const travelerCount = Math.max(1, (trip.travelers ?? []).length)
 
   return (
     <div className="flex flex-col h-full">
@@ -83,7 +82,7 @@ export default function TripTabs({ trip, onUpdate, onCurrencyChange, readOnly = 
             tripId={trip.id}
             tripCurrency={trip.currency ?? 'MYR'}
             categories={trip.budgetCategories ?? []}
-            travelerCount={travelerCount}
+            travelers={trip.travelers ?? []}
             accommodations={trip.accommodations ?? []}
             onUpdate={readOnly ? noop : onUpdate}
             onCurrencyChange={readOnly ? noop : (onCurrencyChange ?? noop)}
