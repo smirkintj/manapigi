@@ -30,7 +30,10 @@ function calcSplit(travelers: Traveler[], items: BudgetItem[]) {
       share[name] = (share[name] ?? 0) + perShare
       personCosts[name] = (personCosts[name] ?? 0) + perShare
     })
-    if (item.paidBy && paid[item.paidBy] !== undefined) {
+    if (item.paidBy === '__each__') {
+      // each sharer paid their own portion — nets to zero balance per person
+      sharers.forEach((name) => { if (paid[name] !== undefined) paid[name] += perShare })
+    } else if (item.paidBy && paid[item.paidBy] !== undefined) {
       paid[item.paidBy] += totalPaid
     }
   })
@@ -155,7 +158,9 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
                         </p>
                       </div>
                       {readOnly ? (
-                        <span className="font-mono text-xs text-muted shrink-0">{item.paidBy ?? '—'}</span>
+                        <span className="font-mono text-xs text-muted shrink-0">
+                          {item.paidBy === '__each__' ? 'each' : (item.paidBy ?? '—')}
+                        </span>
                       ) : (
                         <select
                           value={item.paidBy ?? ''}
@@ -163,6 +168,7 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
                           className="border border-border rounded px-2 py-1 text-xs bg-cream focus:outline-none focus:border-accent text-muted shrink-0"
                         >
                           <option value="">Who paid?</option>
+                          <option value="__each__">Each paid own</option>
                           {travelers.map((t) => (
                             <option key={t.id} value={t.name}>{t.name}</option>
                           ))}
