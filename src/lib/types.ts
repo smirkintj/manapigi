@@ -6,6 +6,8 @@ export type Trip = {
   shareToken: string
   notes: string | null
   currency: string
+  startDate?: string | null
+  endDate?: string | null
   createdAt: Date | string
   updatedAt: Date | string
   destinations?: Destination[]
@@ -64,6 +66,7 @@ export type BudgetItem = {
   deadline: string | null
   accommodationId: string | null
   paidBy?: string | null
+  individual?: boolean
 }
 
 export type Traveler = {

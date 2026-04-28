@@ -17,6 +17,8 @@ export const trips = pgTable('trips', {
   shareToken: text('share_token').notNull().unique(),
   notes: text('notes'),
   currency: text('currency').default('MYR').notNull(),
+  startDate: text('start_date'),
+  endDate: text('end_date'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
@@ -76,7 +78,8 @@ export const budgetItems = pgTable('budget_items', {
   deadline: text('deadline'), // YYYY-MM-DD, optional
   accommodationId: uuid('accommodation_id').references(() => accommodations.id, { onDelete: 'set null' }),
   paidBy: text('paid_by'),
-  paid: boolean('paid').notNull().default(false), // legacy, kept for compat
+  individual: boolean('individual').notNull().default(false),
+  paid: boolean('paid').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 

@@ -36,12 +36,20 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { name, description, coverEmoji } = await req.json()
+  const { name, description, coverEmoji, currency, startDate, endDate } = await req.json()
   const shareToken = nanoid(12)
 
   const [trip] = await db
     .insert(trips)
-    .values({ name, description, coverEmoji: coverEmoji || '✈️', shareToken })
+    .values({
+      name,
+      description,
+      coverEmoji: coverEmoji || '✈️',
+      currency: currency || 'MYR',
+      startDate: startDate || null,
+      endDate: endDate || null,
+      shareToken,
+    })
     .returning()
 
   return NextResponse.json(trip, { status: 201 })

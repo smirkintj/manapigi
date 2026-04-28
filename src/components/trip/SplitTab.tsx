@@ -4,23 +4,35 @@ import type { BudgetCategory, BudgetItem, Traveler } from '@/lib/types'
 
 type Settlement = { from: string; to: string; amount: number }
 
-function calcSettlement(
-  travelers: Traveler[],
-  items: BudgetItem[],
-): { balances: Record<string, number>; settlements: Settlement[] } {
+function calcSplit(travelers: Traveler[], items: BudgetItem[]) {
   const n = travelers.length
-  if (n === 0) return { balances: {}, settlements: [] }
+  if (n === 0) return { paid: {}, share: {}, balances: {}, settlements: [], personCosts: {} }
 
   const paid: Record<string, number> = {}
   const share: Record<string, number> = {}
-  travelers.forEach((t) => { paid[t.name] = 0; share[t.name] = 0 })
+  const personCosts: Record<string, number> = {}
+  travelers.forEach((t) => { paid[t.name] = 0; share[t.name] = 0; personCosts[t.name] = 0 })
 
   items.forEach((item) => {
-    const perPersonShare = item.perPax ? item.amount : item.amount / n
-    const totalPaid = item.perPax ? item.amount * n : item.amount
-    travelers.forEach((t) => { share[t.name] += perPersonShare })
-    if (item.paidBy && paid[item.paidBy] !== undefined) {
-      paid[item.paidBy] += totalPaid
+    if (item.individual) {
+      // Only for the payer — doesn't affect others' balances
+      const payer = item.paidBy
+      if (payer && paid[payer] !== undefined) {
+        paid[payer] += item.amount
+        share[payer] += item.amount
+        personCosts[payer] += item.amount
+      }
+    } else {
+      // Shared: split evenly (or per-pax)
+      const perPersonShare = item.perPax ? item.amount : item.amount / n
+      const totalPaid = item.perPax ? item.amount * n : item.amount
+      travelers.forEach((t) => {
+        share[t.name] += perPersonShare
+        personCosts[t.name] += perPersonShare
+      })
+      if (item.paidBy && paid[item.paidBy] !== undefined) {
+        paid[item.paidBy] += totalPaid
+      }
     }
   })
 
@@ -39,7 +51,7 @@ function calcSettlement(
     bal[debtor[0]] += amount
   }
 
-  return { balances, settlements }
+  return { paid, share, balances, settlements, personCosts }
 }
 
 type Props = {
@@ -60,10 +72,10 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
   }
 
   const allItems = categories.flatMap((c) => c.items ?? [])
-  const assignedItems = allItems.filter((i) => i.paidBy)
-  const { balances, settlements } = calcSettlement(travelers, assignedItems)
+  const assignedItems = allItems.filter((i) => i.paidBy || i.individual)
+  const { balances, settlements, personCosts } = calcSplit(travelers, assignedItems)
 
-  const updatePaidBy = async (item: BudgetItem, paidBy: string | null) => {
+  const updateItem = async (item: BudgetItem, patch: { paidBy?: string | null; individual?: boolean }) => {
     await fetch(`/api/budget-items/${item.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -75,7 +87,8 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
         bookingStatus: item.bookingStatus,
         deadline: item.deadline,
         accommodationId: item.accommodationId,
-        paidBy,
+        paidBy: patch.paidBy !== undefined ? patch.paidBy : (item.paidBy ?? null),
+        individual: patch.individual !== undefined ? patch.individual : (item.individual ?? false),
       }),
     })
     onUpdate()
@@ -83,6 +96,41 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
 
   return (
     <div className="space-y-5">
+      {/* Per-person cost summary */}
+      {assignedItems.length > 0 && (
+        <div className="border border-border rounded-xl bg-card overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-border">
+            <p className="font-medium text-sm text-ink">Cost per person</p>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            {travelers.map((t) => {
+              const cost = personCosts[t.name] ?? 0
+              const maxCost = Math.max(...travelers.map((x) => personCosts[x.name] ?? 0), 1)
+              const pct = Math.round((cost / maxCost) * 100)
+              return (
+                <div key={t.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-accent-light border border-accent/30 flex items-center justify-center shrink-0">
+                        <span className="font-mono text-[9px] text-accent font-bold">{t.name[0].toUpperCase()}</span>
+                      </div>
+                      <span className="text-sm text-ink">{t.name}</span>
+                    </div>
+                    <span className="font-mono text-sm text-ink font-medium">{cost.toFixed(2)}</span>
+                  </div>
+                  <div className="h-1.5 bg-border rounded-full overflow-hidden">
+                    <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <p className="px-4 pb-3 font-mono text-[10px] text-muted">
+            Amounts in original item currency
+          </p>
+        </div>
+      )}
+
       {/* Items list */}
       {categories.map((cat) => {
         const items = cat.items ?? []
@@ -94,28 +142,46 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
             </div>
             <div className="divide-y divide-border">
               {items.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-ink truncate">{item.label}</p>
-                    <p className="font-mono text-xs text-muted">
-                      {item.itemCurrency} {item.amount.toLocaleString()}
-                      {item.perPax && ' /pax'}
-                    </p>
+                <div key={item.id} className="px-4 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm text-ink truncate">{item.label}</p>
+                        {item.individual && (
+                          <span className="font-mono text-[9px] border border-border rounded px-1 text-muted shrink-0">solo</span>
+                        )}
+                      </div>
+                      <p className="font-mono text-xs text-muted">
+                        {item.itemCurrency} {item.amount.toLocaleString()}
+                        {item.perPax && !item.individual && ' /pax'}
+                      </p>
+                    </div>
+                    {readOnly ? (
+                      <span className="font-mono text-xs text-muted shrink-0">{item.paidBy ?? '—'}</span>
+                    ) : (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <label className="flex items-center gap-1 font-mono text-[10px] text-muted whitespace-nowrap cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={item.individual ?? false}
+                            onChange={(e) => updateItem(item, { individual: e.target.checked })}
+                            className="accent-accent"
+                          />
+                          solo
+                        </label>
+                        <select
+                          value={item.paidBy ?? ''}
+                          onChange={(e) => updateItem(item, { paidBy: e.target.value || null })}
+                          className="border border-border rounded px-2 py-1 text-xs bg-cream focus:outline-none focus:border-accent text-muted"
+                        >
+                          <option value="">Who paid?</option>
+                          {travelers.map((t) => (
+                            <option key={t.id} value={t.name}>{t.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
-                  {readOnly ? (
-                    <span className="font-mono text-xs text-muted shrink-0">{item.paidBy ?? '—'}</span>
-                  ) : (
-                    <select
-                      value={item.paidBy ?? ''}
-                      onChange={(e) => updatePaidBy(item, e.target.value || null)}
-                      className="border border-border rounded px-2 py-1 text-xs bg-cream focus:outline-none focus:border-accent text-muted shrink-0"
-                    >
-                      <option value="">Who paid?</option>
-                      {travelers.map((t) => (
-                        <option key={t.id} value={t.name}>{t.name}</option>
-                      ))}
-                    </select>
-                  )}
                 </div>
               ))}
             </div>
@@ -164,15 +230,15 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
                   <span className="font-medium text-ink">{s.from}</span>
                   <span className="font-mono text-xs text-muted">pays</span>
                   <span className="font-medium text-ink">{s.to}</span>
-                  <span className="font-mono text-sm text-ink ml-auto font-semibold">{s.amount.toFixed(2)}</span>
+                  <span className="font-mono text-sm font-semibold text-ink ml-auto">{s.amount.toFixed(2)}</span>
                 </div>
               ))}
             </div>
           )}
 
-          <p className="px-4 pb-3 font-mono text-[10px] text-muted">
-            Balances use item amounts as-is — multi-currency trips may need manual conversion
-          </p>
+          {settlements.length === 0 && (
+            <p className="px-4 pb-3 font-mono text-xs text-muted">All settled up ✓</p>
+          )}
         </div>
       )}
     </div>

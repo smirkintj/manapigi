@@ -70,6 +70,7 @@ function ItemRow({
   const [amount, setAmount] = useState(String(item.amount))
   const [currency, setCurrency] = useState(item.itemCurrency)
   const [perPax, setPerPax] = useState(item.perPax)
+  const [individual, setIndividual] = useState(item.individual ?? false)
   const [deadline, setDeadline] = useState(item.deadline ?? '')
   const [accommodationId, setAccommodationId] = useState(item.accommodationId ?? '')
 
@@ -100,7 +101,7 @@ function ItemRow({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         label, amount: parseFloat(amount) || 0, itemCurrency: currency,
-        perPax, bookingStatus: status, deadline: deadline || null,
+        perPax, individual, bookingStatus: status, deadline: deadline || null,
         accommodationId: accommodationId || null,
       }),
     })
@@ -132,6 +133,10 @@ function ItemRow({
             <input type="checkbox" checked={perPax} onChange={(e) => setPerPax(e.target.checked)} className="accent-accent" />
             per pax
           </label>
+          <label className="flex items-center gap-1 font-mono text-xs text-muted whitespace-nowrap">
+            <input type="checkbox" checked={individual} onChange={(e) => setIndividual(e.target.checked)} className="accent-accent" />
+            individual
+          </label>
         </div>
         {accommodations.length > 0 && (
           <select value={accommodationId} onChange={(e) => setAccommodationId(e.target.value)}
@@ -158,7 +163,10 @@ function ItemRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className={`text-xs ${status === 'done' ? 'line-through text-muted' : 'text-ink'}`}>{item.label}</span>
-          {item.perPax && travelerCount > 1 && (
+          {item.individual && (
+            <span className="font-mono text-[9px] text-muted border border-border rounded px-1">solo</span>
+          )}
+          {item.perPax && !item.individual && travelerCount > 1 && (
             <span className="font-mono text-[9px] text-muted border border-border rounded px-1">×{travelerCount}</span>
           )}
           {item.deadline && (
