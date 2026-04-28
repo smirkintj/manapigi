@@ -22,6 +22,29 @@ function makePin(index: number) {
   })
 }
 
+function makeArrow(bearingDeg: number) {
+  return L.divIcon({
+    html: `<div style="transform:rotate(${bearingDeg}deg);width:16px;height:16px;display:flex;align-items:center;justify-content:center;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 13 13">
+        <polygon points="6.5,1 11,11 6.5,8.5 2,11" fill="#2d5a3d" opacity="0.9"/>
+      </svg>
+    </div>`,
+    className: '',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  })
+}
+
+function bearingBetween(from: [number, number], to: [number, number]): number {
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const lat1 = toRad(from[0]), lon1 = toRad(from[1])
+  const lat2 = toRad(to[0]), lon2 = toRad(to[1])
+  const dLon = lon2 - lon1
+  const y = Math.sin(dLon) * Math.cos(lat2)
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360
+}
+
 function gcArc(from: [number, number], to: [number, number], steps = 48): [number, number][] {
   const rad = (d: number) => (d * Math.PI) / 180
   const deg = (r: number) => (r * 180) / Math.PI
@@ -66,8 +89,17 @@ async function fetchOsrmRoute(
   }
 }
 
-type RouteEntry = { pts: [number, number][]; dashed: boolean }
+type RouteEntry = { pts: [number, number][]; dashed: boolean; mode: string }
 type RouteMap = Record<string, RouteEntry>
+
+const MODE_LABEL: Record<string, string> = {
+  flight: 'Flight',
+  ferry: 'Ferry',
+  driving: 'Drive',
+  bus: 'Bus',
+  train: 'Train',
+  walking: 'Walk',
+}
 
 function BoundsController({ destinations }: { destinations: Destination[] }) {
   const map = useMap()
@@ -90,6 +122,9 @@ export default function WorldMap({ destinations }: Props) {
 
   const routeKey = mapped.map((d) => `${d.id}:${d.transportMode ?? ''}`).join('|')
 
+  const hasFlightOrFerry = Object.values(routes).some(r => r.dashed)
+  const hasGroundRoute = Object.values(routes).some(r => !r.dashed)
+
   useEffect(() => {
     if (mapped.length < 2) return
     let cancelled = false
@@ -100,21 +135,21 @@ export default function WorldMap({ destinations }: Props) {
         if (cancelled) return
         const from = mapped[i]
         const to = mapped[i + 1]
-        const mode = to.transportMode
+        const mode = to.transportMode ?? ''
         const key = `${from.id}-${to.id}`
         const fromPt: [number, number] = [from.lat!, from.lng!]
         const toPt: [number, number] = [to.lat!, to.lng!]
 
         if (mode === 'flight' || mode === 'ferry') {
-          result[key] = { pts: gcArc(fromPt, toPt), dashed: true }
+          result[key] = { pts: gcArc(fromPt, toPt), dashed: true, mode }
         } else if (mode === 'driving' || mode === 'bus' || mode === 'train') {
           const pts = await fetchOsrmRoute(fromPt, toPt, 'driving')
-          result[key] = { pts: pts ?? [fromPt, toPt], dashed: false }
+          result[key] = { pts: pts ?? [fromPt, toPt], dashed: false, mode }
         } else if (mode === 'walking') {
           const pts = await fetchOsrmRoute(fromPt, toPt, 'foot')
-          result[key] = { pts: pts ?? [fromPt, toPt], dashed: false }
+          result[key] = { pts: pts ?? [fromPt, toPt], dashed: false, mode }
         } else {
-          result[key] = { pts: [fromPt, toPt], dashed: false }
+          result[key] = { pts: [fromPt, toPt], dashed: false, mode }
         }
       }
       if (!cancelled) setRoutes(result)
@@ -149,15 +184,42 @@ export default function WorldMap({ destinations }: Props) {
           const route = routes[key]
           const pts = route?.pts ?? [[from.lat!, from.lng!], [to.lat!, to.lng!]]
           const dashed = route?.dashed ?? false
+          const mode = route?.mode ?? ''
+
+          // Midpoint arrow
+          const midIdx = Math.max(1, Math.floor(pts.length / 2))
+          const midPt = pts[midIdx]
+          const prevPt = pts[midIdx - 1]
+          const bear = bearingBetween(prevPt, midPt)
+
           return (
             <React.Fragment key={key}>
-              <Polyline positions={pts} color="#2d5a3d" weight={5} opacity={0.1} />
+              <Polyline positions={pts} color="#2d5a3d" weight={5} opacity={0.08} />
               <Polyline
                 positions={pts}
                 color="#2d5a3d"
                 weight={2}
                 dashArray={dashed ? '7 5' : undefined}
                 opacity={0.72}
+              >
+                <Popup>
+                  <div style={{ fontFamily: 'Inter,sans-serif', fontSize: 12 }}>
+                    <p style={{ fontWeight: 600, margin: '0 0 2px', color: '#111' }}>
+                      {from.name} → {to.name}
+                    </p>
+                    {mode && (
+                      <p style={{ color: '#7a7a6e', margin: 0 }}>
+                        {MODE_LABEL[mode] ?? mode}
+                      </p>
+                    )}
+                  </div>
+                </Popup>
+              </Polyline>
+              <Marker
+                position={midPt}
+                icon={makeArrow(bear)}
+                interactive={false}
+                zIndexOffset={-100}
               />
             </React.Fragment>
           )
@@ -178,6 +240,24 @@ export default function WorldMap({ destinations }: Props) {
           </Marker>
         ))}
       </MapContainer>
+
+      {/* Transport mode legend */}
+      {mapped.length > 1 && Object.keys(routes).length > 0 && (hasFlightOrFerry || hasGroundRoute) && (
+        <div className="absolute bottom-3 left-3 z-[400] bg-cream/90 backdrop-blur-sm border border-border rounded-lg px-2.5 py-2 flex flex-col gap-1 shadow-sm">
+          {hasGroundRoute && (
+            <div className="flex items-center gap-2">
+              <svg width="22" height="6"><line x1="0" y1="3" x2="22" y2="3" stroke="#2d5a3d" strokeWidth="2" /></svg>
+              <span className="font-mono text-[9px] text-muted">Road / Rail</span>
+            </div>
+          )}
+          {hasFlightOrFerry && (
+            <div className="flex items-center gap-2">
+              <svg width="22" height="6"><line x1="0" y1="3" x2="22" y2="3" stroke="#2d5a3d" strokeWidth="2" strokeDasharray="5 3" /></svg>
+              <span className="font-mono text-[9px] text-muted">Flight / Ferry</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {destinations.length === 0 && (
         <div className="absolute inset-0 flex items-end justify-center pb-5 pointer-events-none z-10">
