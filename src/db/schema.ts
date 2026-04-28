@@ -125,6 +125,7 @@ export const optionGroups = pgTable('option_groups', {
     .references(() => trips.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   category: text('category').default('other'), // flight | accommodation | transport | other
+  selectedChoiceId: text('selected_choice_id'),
   order: integer('order').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })

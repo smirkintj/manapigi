@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { db } from '@/db'
-import { trips, destinations, budgetCategories, budgetItems } from '@/db/schema'
+import { trips, destinations, budgetCategories, budgetItems, travelers as travelersTable } from '@/db/schema'
 import { desc, eq } from 'drizzle-orm'
 import TripCard from '@/components/trip/TripCard'
 import NewTripButton from '@/components/trip/NewTripButton'
@@ -11,14 +11,19 @@ async function getTrips() {
 
   return Promise.all(
     rows.map(async (trip) => {
-      const dests = await db.select().from(destinations).where(eq(destinations.tripId, trip.id))
-      const cats = await db.select().from(budgetCategories).where(eq(budgetCategories.tripId, trip.id))
+      const [dests, cats, travs] = await Promise.all([
+        db.select().from(destinations).where(eq(destinations.tripId, trip.id)),
+        db.select().from(budgetCategories).where(eq(budgetCategories.tripId, trip.id)),
+        db.select({ id: travelersTable.id, name: travelersTable.name, order: travelersTable.order })
+          .from(travelersTable)
+          .where(eq(travelersTable.tripId, trip.id)),
+      ])
       let budgetTotal = 0
       for (const cat of cats) {
         const items = await db.select().from(budgetItems).where(eq(budgetItems.categoryId, cat.id))
         budgetTotal += items.reduce((s, i) => s + i.amount, 0)
       }
-      return { ...trip, destinationCount: dests.length, budgetTotal }
+      return { ...trip, destinationCount: dests.length, budgetTotal, travelers: travs }
     }),
   )
 }

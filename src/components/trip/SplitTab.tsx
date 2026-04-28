@@ -1,8 +1,18 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import type { BudgetCategory, BudgetItem, Traveler } from '@/lib/types'
+import { CURRENCY_SYMBOLS } from '@/lib/utils'
 
+type Rates = Record<string, number>
 type Settlement = { from: string; to: string; amount: number }
+
+function toBase(amount: number, from: string, to: string, rates: Rates): number {
+  if (from === to) return amount
+  const inMYR = from === 'MYR' ? amount : (rates[from] ? amount / rates[from] : amount)
+  if (to === 'MYR') return inMYR
+  return rates[to] ? inMYR * rates[to] : inMYR
+}
 
 function getSharerId(item: BudgetItem, travelers: Traveler[]): string[] {
   if (!item.sharedWith) return travelers.map((t) => t.name)
@@ -14,7 +24,7 @@ function getSharerId(item: BudgetItem, travelers: Traveler[]): string[] {
   }
 }
 
-function calcSplit(travelers: Traveler[], items: BudgetItem[]) {
+function calcSplit(travelers: Traveler[], items: BudgetItem[], rates: Rates, tripCurrency: string) {
   const paid: Record<string, number> = {}
   const share: Record<string, number> = {}
   const personCosts: Record<string, number> = {}
@@ -23,15 +33,17 @@ function calcSplit(travelers: Traveler[], items: BudgetItem[]) {
   items.forEach((item) => {
     const sharers = getSharerId(item, travelers)
     const n = sharers.length || 1
-    const perShare = item.perPax ? item.amount : item.amount / n
-    const totalPaid = item.perPax ? item.amount * n : item.amount
+    const rawPerShare = item.perPax ? item.amount : item.amount / n
+    const rawTotal = item.perPax ? item.amount * n : item.amount
+    const perShare = toBase(rawPerShare, item.itemCurrency, tripCurrency, rates)
+    const totalPaid = toBase(rawTotal, item.itemCurrency, tripCurrency, rates)
 
     sharers.forEach((name) => {
       share[name] = (share[name] ?? 0) + perShare
       personCosts[name] = (personCosts[name] ?? 0) + perShare
     })
+
     if (item.paidBy === '__each__') {
-      // each sharer paid their own portion — nets to zero balance per person
       sharers.forEach((name) => { if (paid[name] !== undefined) paid[name] += perShare })
     } else if (item.paidBy && paid[item.paidBy] !== undefined) {
       paid[item.paidBy] += totalPaid
@@ -59,11 +71,18 @@ function calcSplit(travelers: Traveler[], items: BudgetItem[]) {
 type Props = {
   categories: BudgetCategory[]
   travelers: Traveler[]
+  tripCurrency: string
   readOnly?: boolean
   onUpdate: () => void
 }
 
-export default function SplitTab({ categories, travelers, readOnly = false, onUpdate }: Props) {
+export default function SplitTab({ categories, travelers, tripCurrency, readOnly = false, onUpdate }: Props) {
+  const [rates, setRates] = useState<Rates>({})
+
+  useEffect(() => {
+    fetch('/api/exchange-rate').then(r => r.json()).then(setRates).catch(() => {})
+  }, [])
+
   if (travelers.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -73,9 +92,11 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
     )
   }
 
+  const currSym = CURRENCY_SYMBOLS[tripCurrency] ?? tripCurrency
+
   const allItems = categories.flatMap((c) => c.items ?? [])
   const assignedItems = allItems.filter((i) => i.paidBy)
-  const { balances, settlements, personCosts } = calcSplit(travelers, assignedItems)
+  const { balances, settlements, personCosts } = calcSplit(travelers, assignedItems, rates, tripCurrency)
 
   const updateItem = async (item: BudgetItem, paidBy: string | null, sharedWith: string | null) => {
     await fetch(`/api/budget-items/${item.id}`, {
@@ -96,13 +117,15 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
     let next: string[]
     if (current.includes(name)) {
       next = current.filter((n) => n !== name)
-      if (next.length === 0) return // need at least one
+      if (next.length === 0) return
     } else {
       next = [...current, name]
     }
     const allIn = next.length === travelers.length
     updateItem(item, item.paidBy ?? null, allIn ? null : JSON.stringify(next))
   }
+
+  const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
     <div className="space-y-5">
@@ -123,14 +146,12 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
                     </div>
                     <span className="font-mono text-[10px] text-muted uppercase tracking-wider truncate">{t.name}</span>
                   </div>
-                  <p className="font-serif text-3xl text-ink">
-                    {cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </p>
+                  <p className="font-serif text-3xl text-ink">{fmt(cost)}</p>
+                  <p className="font-mono text-[10px] text-muted mt-0.5">{tripCurrency}</p>
                 </div>
               )
             })}
           </div>
-          <p className="px-4 py-2.5 font-mono text-[10px] text-muted border-t border-border">Amounts in original item currency</p>
         </div>
       )}
 
@@ -176,7 +197,6 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
                       )}
                     </div>
 
-                    {/* Shared with toggles */}
                     {!readOnly && (
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-mono text-[10px] text-muted">shared with:</span>
@@ -240,7 +260,7 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
                     <span className="text-sm text-ink">{t.name}</span>
                   </div>
                   <span className={`font-mono text-sm ${bal > 0.005 ? 'text-green-600' : bal < -0.005 ? 'text-red-500' : 'text-muted'}`}>
-                    {bal > 0.005 ? '+' : ''}{bal.toFixed(2)}
+                    {bal > 0.005 ? '+' : ''}{currSym}{fmt(bal)}
                   </span>
                 </div>
               )
@@ -254,7 +274,7 @@ export default function SplitTab({ categories, travelers, readOnly = false, onUp
                   <span className="font-medium text-ink">{s.from}</span>
                   <span className="font-mono text-xs text-muted">pays</span>
                   <span className="font-medium text-ink">{s.to}</span>
-                  <span className="font-mono text-sm font-semibold text-ink ml-auto">{s.amount.toFixed(2)}</span>
+                  <span className="font-mono text-sm font-semibold text-ink ml-auto">{currSym}{fmt(s.amount)}</span>
                 </div>
               ))}
             </div>

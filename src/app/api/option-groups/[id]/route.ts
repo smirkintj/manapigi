@@ -8,10 +8,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const { title, category } = await req.json()
+  const { title, category, selectedChoiceId } = await req.json()
   const [group] = await db
     .update(optionGroups)
-    .set({ title, category })
+    .set({
+      ...(title !== undefined && { title }),
+      ...(category !== undefined && { category }),
+      ...(selectedChoiceId !== undefined && { selectedChoiceId: selectedChoiceId ?? null }),
+    })
     .where(eq(optionGroups.id, id))
     .returning()
   return NextResponse.json(group)

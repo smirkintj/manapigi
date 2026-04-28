@@ -93,6 +93,7 @@ export default function TripTabs({ trip, onUpdate, onCurrencyChange, readOnly = 
           <SplitTab
             categories={trip.budgetCategories ?? []}
             travelers={trip.travelers ?? []}
+            tripCurrency={trip.currency ?? 'MYR'}
             readOnly={readOnly}
             onUpdate={readOnly ? noop : onUpdate}
           />

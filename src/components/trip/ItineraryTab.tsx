@@ -4,6 +4,17 @@ import { useState, useEffect, useRef, useCallback, Fragment } from 'react'
 import type { Destination, ItineraryItem } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 
+function dayToDate(arrival: string | null | undefined, dayNum: number): string | null {
+  if (!arrival) return null
+  try {
+    const [y, m, d] = arrival.split('-').map(Number)
+    const date = new Date(y, m - 1, d + dayNum - 1)
+    return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  } catch {
+    return null
+  }
+}
+
 // ── Item row ──────────────────────────────────────────────────────────────────
 
 function ItemRow({ item, onUpdate }: { item: ItineraryItem; onUpdate: () => void }) {
@@ -78,6 +89,21 @@ function DestinationPanel({ dest, onUpdate }: { dest: Destination; onUpdate: () 
 
   useEffect(() => { setLocalItems(dest.itineraryItems ?? []) }, [dest.itineraryItems])
 
+  // Group items by day number, sorted; null-day items last
+  const byDay = new Map<number | null, ItineraryItem[]>()
+  localItems.forEach(item => {
+    const key = item.day ?? null
+    if (!byDay.has(key)) byDay.set(key, [])
+    byDay.get(key)!.push(item)
+  })
+  const sortedDays = [...byDay.keys()].sort((a, b) => {
+    if (a === null) return 1
+    if (b === null) return -1
+    return a - b
+  })
+
+  const computedAddDate = day && dest.arrival ? dayToDate(dest.arrival, parseInt(day)) : null
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
@@ -111,25 +137,55 @@ function DestinationPanel({ dest, onUpdate }: { dest: Destination; onUpdate: () 
         )}
       </div>
 
-      <div className="px-4 py-3 space-y-0.5">
+      <div className="px-4 py-3">
         {localItems.length === 0 && (
-          <p className="text-xs text-muted font-mono py-1">No activities yet</p>
+          <p className="text-xs text-muted font-mono py-1 mb-1">No activities yet</p>
         )}
-        {localItems.map((item) => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            onUpdate={() => { setLocalItems((prev) => prev.filter((i) => i.id !== item.id)); onUpdate() }}
-          />
-        ))}
+        {sortedDays.map((dayNum) => {
+          const items = byDay.get(dayNum)!
+          const dateLabel = dayNum !== null ? dayToDate(dest.arrival, dayNum) : null
+          return (
+            <div key={dayNum ?? 'unscheduled'} className="mb-3 last:mb-0">
+              {dayNum !== null && (
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-mono text-[10px] text-accent font-semibold uppercase tracking-wider">
+                    Day {dayNum}
+                  </span>
+                  {dateLabel && (
+                    <span className="font-mono text-[10px] text-muted">{dateLabel}</span>
+                  )}
+                </div>
+              )}
+              {dayNum === null && localItems.some(i => i.day !== null) && (
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-mono text-[10px] text-muted uppercase tracking-wider">Unscheduled</span>
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {items.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    onUpdate={() => { setLocalItems((prev) => prev.filter((i) => i.id !== item.id)); onUpdate() }}
+                  />
+                ))}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       <div className="px-4 pb-3">
         {open ? (
           <form onSubmit={submit} className="border border-border rounded-lg p-3 space-y-2 bg-cream">
             <div className="flex gap-2">
-              <input value={day} onChange={(e) => setDay(e.target.value)} placeholder="Day" type="number" min={1}
-                className="w-14 border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent" />
+              <div className="flex flex-col gap-0.5">
+                <input value={day} onChange={(e) => setDay(e.target.value)} placeholder="Day" type="number" min={1}
+                  className="w-14 border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent" />
+                {computedAddDate && (
+                  <span className="font-mono text-[9px] text-muted text-center">{computedAddDate}</span>
+                )}
+              </div>
               <input value={time} onChange={(e) => setTime(e.target.value)} placeholder="10:00"
                 className="w-20 border border-border rounded px-2 py-1 text-xs font-mono bg-cream focus:outline-none focus:border-accent" />
               <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Activity"
@@ -253,7 +309,6 @@ function RouteFlow({
         })}
       </div>
 
-      {/* SVG overlay: U-curves at row wraps */}
       {svgPaths.length > 0 && (
         <svg
           className="absolute inset-0 pointer-events-none"
@@ -262,7 +317,6 @@ function RouteFlow({
           {svgPaths.map((p, i) => (
             <g key={i}>
               <path d={p.d} stroke="#e2dfd7" strokeWidth="1.5" fill="none" />
-              {/* Left-pointing arrowhead */}
               <polygon
                 points={`${p.tipX},${p.tipY} ${p.tipX + 7},${p.tipY - 4} ${p.tipX + 7},${p.tipY + 4}`}
                 fill="#e2dfd7"

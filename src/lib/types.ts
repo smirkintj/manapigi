@@ -102,6 +102,7 @@ export type OptionGroup = {
   tripId: string
   title: string
   category: string | null
+  selectedChoiceId?: string | null
   order: number
   choices?: OptionChoice[]
 }

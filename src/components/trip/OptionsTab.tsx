@@ -16,12 +16,18 @@ const CATEGORIES = [
 function ChoiceRow({
   choice,
   index,
+  isSelected,
+  anySelected,
   readOnly,
+  onSelect,
   onUpdate,
 }: {
   choice: OptionChoice
   index: number
+  isSelected: boolean
+  anySelected: boolean
   readOnly: boolean
+  onSelect: () => void
   onUpdate: () => void
 }) {
   const [editing, setEditing] = useState(false)
@@ -74,11 +80,18 @@ function ChoiceRow({
     )
   }
 
+  const dimmed = anySelected && !isSelected
+
   return (
-    <div className="flex items-start gap-3 py-2.5 border-t border-border first:border-0">
+    <div className={`flex items-start gap-3 py-2.5 border-t border-border first:border-0 transition-opacity ${dimmed ? 'opacity-40' : ''}`}>
       <span className="font-mono text-xs text-muted w-5 pt-0.5 shrink-0 text-right">{index + 1}.</span>
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-ink font-medium">{choice.label}</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm text-ink font-medium">{choice.label}</p>
+          {isSelected && (
+            <span className="font-mono text-[9px] bg-accent text-cream px-1.5 py-0.5 rounded-full">✓ Picked</span>
+          )}
+        </div>
         {choice.timing && <p className="font-mono text-xs text-muted mt-0.5">{choice.timing}</p>}
         {choice.notes  && <p className="text-xs text-muted mt-0.5">{choice.notes}</p>}
       </div>
@@ -86,6 +99,11 @@ function ChoiceRow({
         <p className="font-mono text-sm font-semibold text-ink">{formatAmount(choice.amount, choice.currency)}</p>
         {!readOnly && (
           <div className="flex gap-1.5 pt-0.5">
+            {isSelected ? (
+              <button onClick={onSelect} className="font-mono text-[10px] text-accent hover:text-ink">unselect</button>
+            ) : (
+              <button onClick={onSelect} className="font-mono text-[10px] text-muted hover:text-accent">pick</button>
+            )}
             <button onClick={() => setEditing(true)} className="font-mono text-[10px] text-muted hover:text-ink">edit</button>
             <button onClick={remove} className="font-mono text-[10px] text-muted hover:text-red-500">del</button>
           </div>
@@ -107,6 +125,7 @@ function GroupCard({
   onUpdate: () => void
 }) {
   const [adding, setAdding] = useState(false)
+  const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(group.selectedChoiceId ?? null)
   const [label, setLabel]   = useState('')
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('MYR')
@@ -115,6 +134,18 @@ function GroupCard({
   const [loading, setLoading] = useState(false)
 
   const choices = group.choices ?? []
+  const selectedChoice = choices.find(c => c.id === selectedChoiceId)
+
+  const selectChoice = async (id: string | null) => {
+    const next = id === selectedChoiceId ? null : id
+    setSelectedChoiceId(next)
+    await fetch(`/api/option-groups/${group.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selectedChoiceId: next }),
+    })
+    onUpdate()
+  }
 
   const addChoice = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -143,13 +174,18 @@ function GroupCard({
     <div className="border border-border rounded-xl bg-card overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted">{catLabel}</span>
-          <span className="text-border">·</span>
-          <p className="font-medium text-sm text-ink">{group.title}</p>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted shrink-0">{catLabel}</span>
+          <span className="text-border shrink-0">·</span>
+          <p className="font-medium text-sm text-ink truncate">{group.title}</p>
+          {selectedChoice && (
+            <span className="font-mono text-[9px] text-accent border border-accent/30 rounded-full px-2 py-0.5 shrink-0 whitespace-nowrap">
+              {selectedChoice.label} · {formatAmount(selectedChoice.amount, selectedChoice.currency)}
+            </span>
+          )}
         </div>
         {!readOnly && (
-          <button onClick={deleteGroup} className="text-muted hover:text-red-500 text-sm transition-colors">×</button>
+          <button onClick={deleteGroup} className="text-muted hover:text-red-500 text-sm transition-colors shrink-0 ml-2">×</button>
         )}
       </div>
 
@@ -159,7 +195,16 @@ function GroupCard({
           <p className="font-mono text-xs text-muted py-3">No options yet — add one below</p>
         )}
         {choices.map((c, i) => (
-          <ChoiceRow key={c.id} choice={c} index={i} readOnly={readOnly} onUpdate={onUpdate} />
+          <ChoiceRow
+            key={c.id}
+            choice={c}
+            index={i}
+            isSelected={c.id === selectedChoiceId}
+            anySelected={selectedChoiceId !== null}
+            readOnly={readOnly}
+            onSelect={() => selectChoice(c.id)}
+            onUpdate={onUpdate}
+          />
         ))}
 
         {!readOnly && (

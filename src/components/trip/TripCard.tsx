@@ -11,12 +11,15 @@ type TripCardData = {
   createdAt: Date | string
   destinationCount: number
   budgetTotal: number
+  travelers?: { id: string; name: string }[]
 }
 
 export default function TripCard({ trip }: { trip: TripCardData }) {
   const dateLabel = trip.startDate
     ? [trip.startDate, trip.endDate].filter(Boolean).map(formatDate).join(' → ')
     : null
+
+  const travelers = trip.travelers ?? []
 
   return (
     <Link href={`/trip/${trip.id}`}>
@@ -36,6 +39,26 @@ export default function TripCard({ trip }: { trip: TripCardData }) {
           </div>
         </div>
         <div className="flex items-center gap-3 pt-3 border-t border-border mt-auto">
+          {travelers.length > 0 && (
+            <>
+              <div className="flex items-center -space-x-1">
+                {travelers.slice(0, 5).map((t) => (
+                  <div key={t.id}
+                    className="w-5 h-5 rounded-full bg-accent-light border border-accent/30 flex items-center justify-center ring-1 ring-card"
+                    title={t.name}
+                  >
+                    <span className="font-mono text-[8px] text-accent font-bold">{t.name[0].toUpperCase()}</span>
+                  </div>
+                ))}
+                {travelers.length > 5 && (
+                  <div className="w-5 h-5 rounded-full bg-border flex items-center justify-center ring-1 ring-card">
+                    <span className="font-mono text-[8px] text-muted">+{travelers.length - 5}</span>
+                  </div>
+                )}
+              </div>
+              <span className="text-border">·</span>
+            </>
+          )}
           <span className="font-mono text-xs text-muted">
             {trip.destinationCount} {trip.destinationCount === 1 ? 'stop' : 'stops'}
           </span>
