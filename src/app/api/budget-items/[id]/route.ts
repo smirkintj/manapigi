@@ -8,7 +8,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const { label, amount, itemCurrency, perPax, bookingStatus, deadline, accommodationId, paidBy, individual } = await req.json()
+  const { label, amount, itemCurrency, perPax, bookingStatus, deadline, accommodationId, paidBy, sharedWith } = await req.json()
 
   const status = bookingStatus ?? 'pending'
   const [item] = await db
@@ -22,7 +22,7 @@ export async function PUT(
       deadline: deadline ?? null,
       accommodationId: accommodationId ?? null,
       paidBy: paidBy ?? null,
-      individual: individual ?? false,
+      sharedWith: sharedWith ?? null,
       paid: status === 'done',
     })
     .where(eq(budgetItems.id, id))

@@ -66,7 +66,7 @@ export type BudgetItem = {
   deadline: string | null
   accommodationId: string | null
   paidBy?: string | null
-  individual?: boolean
+  sharedWith?: string | null  // JSON string[] of traveler names; null = everyone
 }
 
 export type Traveler = {

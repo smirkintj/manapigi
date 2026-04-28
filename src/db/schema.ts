@@ -78,7 +78,7 @@ export const budgetItems = pgTable('budget_items', {
   deadline: text('deadline'), // YYYY-MM-DD, optional
   accommodationId: uuid('accommodation_id').references(() => accommodations.id, { onDelete: 'set null' }),
   paidBy: text('paid_by'),
-  individual: boolean('individual').notNull().default(false),
+  sharedWith: text('shared_with'), // JSON string[] of traveler names; null = everyone
   paid: boolean('paid').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })

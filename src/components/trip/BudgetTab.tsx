@@ -16,6 +16,10 @@ function effectiveAmount(item: BudgetItem, travelerCount: number): number {
   return item.perPax ? item.amount * travelerCount : item.amount
 }
 
+function perPersonAmount(item: BudgetItem, travelerCount: number): number {
+  return item.perPax ? item.amount : item.amount / Math.max(1, travelerCount)
+}
+
 const STATUS_NEXT: Record<BookingStatus, BookingStatus> = {
   pending: 'in_progress',
   in_progress: 'done',
@@ -70,13 +74,12 @@ function ItemRow({
   const [amount, setAmount] = useState(String(item.amount))
   const [currency, setCurrency] = useState(item.itemCurrency)
   const [perPax, setPerPax] = useState(item.perPax)
-  const [individual, setIndividual] = useState(item.individual ?? false)
   const [deadline, setDeadline] = useState(item.deadline ?? '')
   const [accommodationId, setAccommodationId] = useState(item.accommodationId ?? '')
 
   const status = (item.bookingStatus ?? 'pending') as BookingStatus
-  const eff = effectiveAmount(item, travelerCount)
-  const myrEquiv = toMYR(eff, item.itemCurrency, rates)
+  const ppa = perPersonAmount(item, travelerCount)
+  const myrEquiv = toMYR(ppa, item.itemCurrency, rates)
   const showMYR = item.itemCurrency !== 'MYR' && Object.keys(rates).length > 0
   const linkedStay = accommodations.find((a) => a.id === item.accommodationId)
 
@@ -101,7 +104,7 @@ function ItemRow({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         label, amount: parseFloat(amount) || 0, itemCurrency: currency,
-        perPax, individual, bookingStatus: status, deadline: deadline || null,
+        perPax, bookingStatus: status, deadline: deadline || null,
         accommodationId: accommodationId || null,
       }),
     })
@@ -133,10 +136,6 @@ function ItemRow({
             <input type="checkbox" checked={perPax} onChange={(e) => setPerPax(e.target.checked)} className="accent-accent" />
             per pax
           </label>
-          <label className="flex items-center gap-1 font-mono text-xs text-muted whitespace-nowrap">
-            <input type="checkbox" checked={individual} onChange={(e) => setIndividual(e.target.checked)} className="accent-accent" />
-            individual
-          </label>
         </div>
         {accommodations.length > 0 && (
           <select value={accommodationId} onChange={(e) => setAccommodationId(e.target.value)}
@@ -163,11 +162,8 @@ function ItemRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className={`text-xs ${status === 'done' ? 'line-through text-muted' : 'text-ink'}`}>{item.label}</span>
-          {item.individual && (
-            <span className="font-mono text-[9px] text-muted border border-border rounded px-1">solo</span>
-          )}
-          {item.perPax && !item.individual && travelerCount > 1 && (
-            <span className="font-mono text-[9px] text-muted border border-border rounded px-1">×{travelerCount}</span>
+          {item.perPax && (
+            <span className="font-mono text-[9px] text-muted border border-border rounded px-1">/pax</span>
           )}
           {item.deadline && (
             <span className="font-mono text-[9px] text-muted border border-border rounded px-1">by {formatDate(item.deadline)}</span>
@@ -188,7 +184,7 @@ function ItemRow({
           </>
         ) : (
           <span className={`font-mono text-xs ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
-            {formatAmount(eff, item.itemCurrency)}
+            {formatAmount(ppa, item.itemCurrency)}
           </span>
         )}
       </div>
@@ -196,7 +192,7 @@ function ItemRow({
       {/* Mobile: amount + icon buttons always visible */}
       <div className="flex sm:hidden items-center gap-2 shrink-0">
         <span className={`font-mono text-xs ${status === 'done' ? 'text-muted' : 'text-ink'}`}>
-          {formatAmount(eff, item.itemCurrency)}
+          {formatAmount(ppa, item.itemCurrency)}
         </span>
         <button onClick={() => setEditing(true)} className="text-muted text-sm leading-none">✎</button>
         <button onClick={remove} className="text-muted hover:text-red-500 text-sm leading-none">×</button>
@@ -233,8 +229,8 @@ function CategoryCard({
 
   useEffect(() => { setLocalItems(category.items ?? []) }, [category.items])
 
-  const myrTotal = localItems.reduce(
-    (s, i) => s + toMYR(effectiveAmount(i, travelerCount), i.itemCurrency, rates), 0
+  const myrPerPerson = localItems.reduce(
+    (s, i) => s + toMYR(perPersonAmount(i, travelerCount), i.itemCurrency, rates), 0
   )
 
   const addItem = async (e: React.FormEvent) => {
@@ -283,7 +279,7 @@ function CategoryCard({
           <span className="font-medium text-xs text-ink">{category.name}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs text-ink font-semibold">RM {myrTotal.toFixed(0)}</span>
+          <span className="font-mono text-xs text-ink font-semibold">RM {myrPerPerson.toFixed(0)}<span className="text-muted font-normal">/pax</span></span>
           <button onClick={deleteCategory} className="text-muted hover:text-red-500 text-sm transition-colors leading-none">×</button>
         </div>
       </div>
@@ -395,8 +391,8 @@ function PurchaseTracker({
       <div className="divide-y divide-border">
         {tracked.map((item) => {
           const status = (item.bookingStatus ?? 'pending') as BookingStatus
-          const eff = effectiveAmount(item, travelerCount)
-          const myrEquiv = toMYR(eff, item.itemCurrency, rates)
+          const ppa = perPersonAmount(item, travelerCount)
+          const myrEquiv = toMYR(ppa, item.itemCurrency, rates)
           const showMYR = item.itemCurrency !== 'MYR' && Object.keys(rates).length > 0
           const linkedStay = accommodations.find((a) => a.id === item.accommodationId)
           return (
@@ -423,7 +419,7 @@ function PurchaseTracker({
                 </div>
               </div>
               <div className="text-right shrink-0">
-                <p className="font-mono text-sm text-ink">{formatAmount(eff, item.itemCurrency)}</p>
+                <p className="font-mono text-sm text-ink">{formatAmount(ppa, item.itemCurrency)}<span className="text-[9px] text-muted">/pax</span></p>
                 {showMYR && <p className="font-mono text-[10px] text-muted">≈ RM {myrEquiv.toFixed(0)}</p>}
               </div>
             </div>
@@ -462,6 +458,7 @@ export default function BudgetTab({
   const myrTotal = allItems.reduce(
     (s, i) => s + toMYR(effectiveAmount(i, travelerCount), i.itemCurrency, rates), 0
   )
+  const myrPerPerson = travelerCount > 0 ? myrTotal / travelerCount : myrTotal
 
   const addCategory = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -492,13 +489,13 @@ export default function BudgetTab({
       {/* Summary */}
       <div className="flex items-end justify-between gap-4 pb-5 mb-5 border-b border-border">
         <div>
-          <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">Total (RM)</p>
+          <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">Per person (RM)</p>
           <p className="font-serif text-4xl text-ink">
-            {myrTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {myrPerPerson.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           {travelerCount > 1 && myrTotal > 0 && (
             <p className="font-mono text-xs text-muted mt-1">
-              ≈ RM {(myrTotal / travelerCount).toFixed(2)} per person
+              RM {myrTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} total
             </p>
           )}
         </div>
