@@ -17,6 +17,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
+    "geist": "^1.7.0",
     "leaflet": "^1.9.4",
     "nanoid": "^5.1.9",
     "next": "16.2.4",
