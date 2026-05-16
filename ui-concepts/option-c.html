@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option C — Dark</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #0d0d0d; color: #f0f0f0; min-height: 100vh; }
+
+  .shell { display: flex; height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { width: 64px; background: #141414; border-right: 1px solid #222; padding: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+  .logo { font-size: 18px; font-weight: 900; color: #a3e635; margin-bottom: 28px; }
+  .nav-icon2 { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 17px; cursor: pointer; transition: all 0.15s; }
+  .nav-icon2:hover { background: #1f1f1f; }
+  .nav-icon2.active { background: #1a2e05; }
+  .sidebar-spacer { flex: 1; }
+
+  /* Main */
+  .main { flex: 1; overflow-y: auto; padding: 32px 36px; }
+
+  /* Header */
+  .header2 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+  .header2-left { display: flex; flex-direction: column; gap: 3px; }
+  .month-badge { display: inline-flex; align-items: center; gap: 8px; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 99px; padding: 5px 14px; font-size: 12.5px; color: #888; }
+  .header2-left h1 { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .header2-left h1 span { color: #a3e635; }
+  .header2-right { display: flex; gap: 10px; }
+  .btn-ghost { background: #1a1a1a; border: 1px solid #2a2a2a; padding: 9px 16px; border-radius: 10px; font-size: 12.5px; color: #888; cursor: pointer; }
+  .btn-lime { background: #a3e635; border: none; padding: 9px 18px; border-radius: 10px; font-size: 12.5px; color: #0d0d0d; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+
+  /* Big number row */
+  .big-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  .big-card { background: #141414; border: 1px solid #1f1f1f; border-radius: 16px; padding: 24px 26px; }
+  .big-card.main-card { background: #131f03; border-color: #2a3d08; }
+  .big-lbl { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+  .big-num { font-size: 40px; font-weight: 900; letter-spacing: -2px; color: #a3e635; }
+  .big-card:not(.main-card) .big-num { font-size: 28px; color: #f0f0f0; letter-spacing: -1px; }
+  .big-sub { font-size: 12px; color: #555; margin-top: 8px; }
+  .spent-pct { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+  .pct-bar { flex: 1; height: 6px; background: #1f2e05; border-radius: 99px; overflow: hidden; }
+  .pct-fill { height: 100%; background: #a3e635; border-radius: 99px; }
+  .pct-label { font-size: 11.5px; color: #6b8c1a; white-space: nowrap; }
+
+  /* Flags row */
+  .flags2 { display: flex; gap: 10px; margin-bottom: 16px; }
+  .flag2 { flex: 1; background: #141414; border-radius: 12px; padding: 14px 16px; border: 1px solid #1f1f1f; display: flex; align-items: flex-start; gap: 10px; }
+  .flag2.danger { border-color: #3d0f0f; background: #190808; }
+  .flag2.warn { border-color: #3d2d0a; background: #180f02; }
+  .flag2-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .flag2-title { font-size: 12.5px; font-weight: 600; color: #f0f0f0; }
+  .flag2.danger .flag2-title { color: #f87171; }
+  .flag2.warn .flag2-title { color: #fbbf24; }
+  .flag2-desc { font-size: 11.5px; color: #555; margin-top: 3px; line-height: 1.5; }
+  .flag2-tip { font-size: 11px; color: #3d8c4a; margin-top: 6px; }
+  .flag2.danger .flag2-tip { color: #ef4444; opacity: 0.7; }
+  .flag2.warn .flag2-tip { color: #d97706; opacity: 0.8; }
+
+  /* Bottom grid */
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .dark-card { background: #141414; border: 1px solid #1f1f1f; border-radius: 16px; padding: 22px; }
+  .dark-card-title { font-size: 11px; color: #444; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 18px; }
+
+  /* Category bars dark */
+  .cat-dark { display: flex; flex-direction: column; gap: 14px; }
+  .cat-dark-row { display: flex; flex-direction: column; gap: 5px; }
+  .cat-dark-meta { display: flex; justify-content: space-between; align-items: center; }
+  .cat-dark-name { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 7px; }
+  .cat-dark-amt { font-size: 12px; color: #666; }
+  .cat-dark-amt span { color: #f0f0f0; font-weight: 600; }
+  .dark-bar-bg { height: 4px; background: #1f1f1f; border-radius: 99px; overflow: hidden; }
+  .dark-bar-fill { height: 100%; border-radius: 99px; }
+
+  /* Trend dark */
+  .trend-dark { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+  .td-col { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 1; }
+  .td-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+  .td-bar { width: 100%; border-radius: 4px 4px 0 0; }
+  .td-lbl { font-size: 9.5px; color: #444; }
+  .td-val { font-size: 10px; color: #666; }
+  .td-col.current .td-lbl { color: #a3e635; }
+  .td-col.current .td-val { color: #a3e635; }
+
+  /* Txn dark */
+  .txn-dark { display: flex; flex-direction: column; }
+  .txn-dark-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #181818; }
+  .txn-dark-row:last-child { border-bottom: none; }
+  .txn-dark-cat { width: 30px; height: 30px; border-radius: 8px; background: #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+  .txn-dark-info { flex: 1; }
+  .txn-dark-name2 { font-size: 12.5px; font-weight: 500; }
+  .txn-dark-sub2 { font-size: 10.5px; color: #444; margin-top: 1px; }
+  .txn-dark-amt { font-size: 13px; font-weight: 700; }
+  .txn-dark-amt.neg { color: #f0f0f0; }
+  .txn-dark-amt.pos { color: #a3e635; }
+
+  /* AI dark */
+  .ai-dark { background: #0d1a02; border: 1px solid #2a3d08; border-radius: 16px; padding: 22px; }
+  .ai-dark-label { font-size: 10.5px; font-weight: 700; color: #a3e635; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; }
+  .ai-deploy { display: flex; flex-direction: column; gap: 10px; }
+  .ai-deploy-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #121e02; border-radius: 10px; border: 1px solid #1f3005; }
+  .ai-deploy-label { font-size: 12.5px; color: #a3c47a; }
+  .ai-deploy-label small { display: block; font-size: 10.5px; color: #4a6a20; margin-top: 2px; }
+  .ai-deploy-amt { font-size: 13px; font-weight: 700; color: #a3e635; }
+  .ai-dark-note { font-size: 11.5px; color: #444; margin-top: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- Icon sidebar -->
+  <nav class="sidebar">
+    <div class="logo">M</div>
+    <div class="nav-icon2 active" title="Overview">◻</div>
+    <div class="nav-icon2" title="Transactions">↕</div>
+    <div class="nav-icon2" title="Trends">↗</div>
+    <div class="nav-icon2" title="Insights">✦</div>
+    <div class="sidebar-spacer"></div>
+    <div class="nav-icon2" title="Import PDF">📄</div>
+    <div class="nav-icon2" title="Settings">⚙</div>
+  </nav>
+
+  <main class="main">
+    <!-- Header -->
+    <div class="header2">
+      <div class="header2-left">
+        <div class="month-badge">← &nbsp; May 2026 &nbsp; →</div>
+        <h1>RM <span>3,890</span> left</h1>
+      </div>
+      <div class="header2-right">
+        <button class="btn-ghost">📄 Import statement</button>
+        <button class="btn-lime">+ Add expense</button>
+      </div>
+    </div>
+
+    <!-- Big numbers -->
+    <div class="big-row">
+      <div class="big-card main-card">
+        <div class="big-lbl">Remaining this month</div>
+        <div class="big-num">RM 3,890</div>
+        <div class="big-sub">48% of your RM 8,200 salary</div>
+        <div class="spent-pct">
+          <div class="pct-bar"><div class="pct-fill" style="width:52%;"></div></div>
+          <div class="pct-label">52% spent</div>
+        </div>
+      </div>
+      <div class="big-card">
+        <div class="big-lbl">Income</div>
+        <div class="big-num">RM 8,200</div>
+        <div class="big-sub">Salary · May 1</div>
+      </div>
+      <div class="big-card">
+        <div class="big-lbl">Total spent</div>
+        <div class="big-num">RM 4,310</div>
+        <div class="big-sub" style="color:#ef4444;">↑ 12% vs April</div>
+      </div>
+    </div>
+
+    <!-- Flags -->
+    <div class="flags2">
+      <div class="flag2 danger">
+        <div class="flag2-icon">🔴</div>
+        <div>
+          <div class="flag2-title">Shopping spike — 257% above average</div>
+          <div class="flag2-desc">RM 680 spent vs RM 190 avg. Driven by IKEA (RM 340) + Shopee (RM 250).</div>
+          <div class="flag2-tip">→ One-time purchase or new habit? Set a cap for next month.</div>
+        </div>
+      </div>
+      <div class="flag2 warn">
+        <div class="flag2-icon">⚠️</div>
+        <div>
+          <div class="flag2-title">Subscription bloat — RM 387/month</div>
+          <div class="flag2-desc">12 active charges. 3 appear unused in the last 90 days.</div>
+          <div class="flag2-tip">→ Review: Canva, iCloud 200GB, Adobe Express</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom grid -->
+    <div class="bottom-grid">
+      <!-- Categories -->
+      <div class="dark-card">
+        <div class="dark-card-title">By category</div>
+        <div class="cat-dark">
+          <div class="cat-dark-row">
+            <div class="cat-dark-meta"><div class="cat-dark-name">🏠 Rent</div><div class="cat-dark-amt"><span>RM 1,800</span> / 1,800</div></div>
+            <div class="dark-bar-bg"><div class="dark-bar-fill" style="width:100%;background:#a3e635;"></div></div>
+          </div>
+          <div class="cat-dark-row">
+            <div class="cat-dark-meta"><div class="cat-dark-name">🍜 Food</div><div class="cat-dark-amt"><span>RM 820</span> / 1,000</div></div>
+            <div class="dark-bar-bg"><div class="dark-bar-fill" style="width:82%;background:#4ade80;"></div></div>
+          </div>
+          <div class="cat-dark-row">
+            <div class="cat-dark-meta"><div class="cat-dark-name">🛒 Shopping</div><div class="cat-dark-amt" style="color:#ef4444;"><span style="color:#ef4444;">RM 680</span> / 300</div></div>
+            <div class="dark-bar-bg"><div class="dark-bar-fill" style="width:100%;background:#ef4444;"></div></div>
+          </div>
+          <div class="cat-dark-row">
+            <div class="cat-dark-meta"><div class="cat-dark-name">📡 Subs</div><div class="cat-dark-amt" style="color:#fbbf24;"><span style="color:#fbbf24;">RM 387</span> / 300</div></div>
+            <div class="dark-bar-bg"><div class="dark-bar-fill" style="width:100%;background:#fbbf24;"></div></div>
+          </div>
+          <div class="cat-dark-row">
+            <div class="cat-dark-meta"><div class="cat-dark-name">🚗 Transport</div><div class="cat-dark-amt"><span>RM 290</span> / 400</div></div>
+            <div class="dark-bar-bg"><div class="dark-bar-fill" style="width:72%;background:#38bdf8;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trend + recent -->
+      <div class="dark-card">
+        <div class="dark-card-title">6-month trend</div>
+        <div class="trend-dark">
+          <div class="td-col">
+            <div class="td-val">3.6k</div>
+            <div class="td-bar-wrap"><div class="td-bar" style="height:54%;background:#2a2a2a;"></div></div>
+            <div class="td-lbl">Dec</div>
+          </div>
+          <div class="td-col">
+            <div class="td-val">3.9k</div>
+            <div class="td-bar-wrap"><div class="td-bar" style="height:60%;background:#2a2a2a;"></div></div>
+            <div class="td-lbl">Jan</div>
+          </div>
+          <div class="td-col">
+            <div class="td-val">4.1k</div>
+            <div class="td-bar-wrap"><div class="td-bar" style="height:63%;background:#2a2a2a;"></div></div>
+            <div class="td-lbl">Feb</div>
+          </div>
+          <div class="td-col">
+            <div class="td-val">3.7k</div>
+            <div class="td-bar-wrap"><div class="td-bar" style="height:57%;background:#2a2a2a;"></div></div>
+            <div class="td-lbl">Mar</div>
+          </div>
+          <div class="td-col">
+            <div class="td-val">3.8k</div>
+            <div class="td-bar-wrap"><div class="td-bar" style="height:59%;background:#2a2a2a;"></div></div>
+            <div class="td-lbl">Apr</div>
+          </div>
+          <div class="td-col current">
+            <div class="td-val">4.3k</div>
+            <div class="td-bar-wrap"><div class="td-bar" style="height:66%;background:#a3e635;"></div></div>
+            <div class="td-lbl">May</div>
+          </div>
+        </div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #1f1f1f;">
+          <div class="dark-card-title" style="margin-bottom:12px;">Recent</div>
+          <div class="txn-dark">
+            <div class="txn-dark-row">
+              <div class="txn-dark-cat">🍔</div>
+              <div class="txn-dark-info"><div class="txn-dark-name2">Grab Food</div><div class="txn-dark-sub2">Today · Food</div></div>
+              <div class="txn-dark-amt neg">−28</div>
+            </div>
+            <div class="txn-dark-row">
+              <div class="txn-dark-cat">🛒</div>
+              <div class="txn-dark-info"><div class="txn-dark-name2">IKEA</div><div class="txn-dark-sub2">May 7 · Shopping</div></div>
+              <div class="txn-dark-amt neg">−340</div>
+            </div>
+            <div class="txn-dark-row">
+              <div class="txn-dark-cat">📡</div>
+              <div class="txn-dark-info"><div class="txn-dark-name2">Unifi</div><div class="txn-dark-sub2">May 9 · Bills</div></div>
+              <div class="txn-dark-amt neg">−99</div>
+            </div>
+            <div class="txn-dark-row">
+              <div class="txn-dark-cat">💼</div>
+              <div class="txn-dark-info"><div class="txn-dark-name2">Salary</div><div class="txn-dark-sub2">May 1 · Income</div></div>
+              <div class="txn-dark-amt pos">+8,200</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI -->
+      <div class="ai-dark">
+        <div class="ai-dark-label">✦ Deploy your savings</div>
+        <div class="ai-deploy">
+          <div class="ai-deploy-row">
+            <div class="ai-deploy-label">
+              Clear CC balance
+              <small>Maybank · due May 28</small>
+            </div>
+            <div class="ai-deploy-amt">RM 3,140</div>
+          </div>
+          <div class="ai-deploy-row">
+            <div class="ai-deploy-label">
+              ASB top-up
+              <small>4.0% p.a. guaranteed</small>
+            </div>
+            <div class="ai-deploy-amt">RM 500</div>
+          </div>
+          <div class="ai-deploy-row">
+            <div class="ai-deploy-label">
+              Keep as buffer
+              <small>Next month runway</small>
+            </div>
+            <div class="ai-deploy-amt">RM 250</div>
+          </div>
+        </div>
+        <div class="ai-dark-note">⚠ Your shopping spike this month was 257% above average. Flag as one-time to exclude from trend, or set a tighter cap for June?</div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

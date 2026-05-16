@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option B — Card Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #f0f4ff; color: #1e1e2e; min-height: 100vh; }
+
+  .shell { display: flex; height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { width: 240px; background: #1e1e2e; padding: 28px 20px; display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+  .logo { font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 36px; letter-spacing: -0.5px; }
+  .logo span { color: #818cf8; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px; color: #94a3b8; cursor: pointer; transition: all 0.15s; text-decoration: none; }
+  .nav-item:hover { background: #2a2a3e; color: #e2e8f0; }
+  .nav-item.active { background: #312e81; color: #c7d2fe; font-weight: 500; }
+  .nav-icon { font-size: 15px; }
+  .nav-sep { height: 1px; background: #2a2a3e; margin: 12px 0; }
+  .avatar { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #2a2a3e; }
+  .avatar-circle { width: 28px; height: 28px; border-radius: 50%; background: #818cf8; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
+  .avatar-name { font-size: 12.5px; color: #94a3b8; }
+
+  /* Main */
+  .main { flex: 1; overflow-y: auto; padding: 32px 36px; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+  .top-bar h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; }
+  .top-bar p { font-size: 13px; color: #64748b; margin-top: 2px; }
+  .top-actions { display: flex; gap: 10px; }
+  .btn-secondary { background: #fff; border: 1px solid #e2e8f0; padding: 8px 14px; border-radius: 8px; font-size: 12.5px; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  .btn-primary { background: #6366f1; border: none; padding: 8px 16px; border-radius: 8px; font-size: 12.5px; color: #fff; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+
+  /* Stat cards */
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border-radius: 14px; padding: 20px 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .stat-card.highlight { background: #6366f1; color: #fff; }
+  .stat-label { font-size: 11.5px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .stat-card.highlight .stat-label { color: #c7d2fe; }
+  .stat-value { font-size: 26px; font-weight: 800; letter-spacing: -0.8px; }
+  .stat-card.highlight .stat-value { color: #fff; }
+  .stat-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 11px; padding: 3px 8px; border-radius: 99px; font-weight: 500; }
+  .badge-up { background: #fee2e2; color: #ef4444; }
+  .badge-down { background: #dcfce7; color: #16a34a; }
+  .badge-neutral { background: #f1f5f9; color: #64748b; }
+  .stat-card.highlight .stat-badge { background: #4f46e5; color: #c7d2fe; }
+
+  /* Alert strip */
+  .alert-strip { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .alert { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 10px; font-size: 12.5px; font-weight: 500; }
+  .alert.danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+  .alert.warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+  .alert-icon { font-size: 14px; }
+
+  /* Grid layout */
+  .grid { display: grid; grid-template-columns: 1fr 1fr 340px; gap: 16px; }
+  .card { background: #fff; border-radius: 14px; padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .card-title { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 18px; }
+
+  /* Categories */
+  .cat-list { display: flex; flex-direction: column; gap: 12px; }
+  .cat-item { display: flex; align-items: center; gap: 12px; }
+  .cat-color { width: 8px; height-height: 8px; border-radius: 3px; flex-shrink: 0; }
+  .cat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .cat-info { flex: 1; }
+  .cat-top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; }
+  .cat-name2 { font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .cat-val { font-weight: 600; }
+  .bar2-bg { height: 6px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+  .bar2-fill { height: 100%; border-radius: 99px; }
+  .over-tag { font-size: 10px; color: #ef4444; font-weight: 600; margin-left: 4px; }
+
+  /* Trend bars */
+  .trend-chart { display: flex; align-items: flex-end; gap: 8px; height: 100px; margin-top: 8px; }
+  .trend-month { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+  .trend-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+  .trend-bar { width: 100%; border-radius: 6px 6px 0 0; }
+  .trend-label { font-size: 10px; color: #94a3b8; }
+  .trend-val { font-size: 10.5px; font-weight: 600; color: #475569; }
+
+  /* Transactions */
+  .txn2 { display: flex; flex-direction: column; }
+  .txn2-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid #f8fafc; }
+  .txn2-row:last-child { border-bottom: none; }
+  .txn2-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .txn2-info { flex: 1; }
+  .txn2-name { font-size: 13px; font-weight: 500; }
+  .txn2-sub { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+  .txn2-amt { font-size: 13px; font-weight: 700; }
+  .txn2-amt.neg { color: #1e1e2e; }
+  .txn2-amt.pos { color: #16a34a; }
+
+  /* AI card */
+  .ai-card { background: linear-gradient(135deg, #1e1e2e 0%, #312e81 100%); border-radius: 14px; padding: 22px; color: #fff; }
+  .ai-label { font-size: 10.5px; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .ai-text { font-size: 13px; color: #c7d2fe; line-height: 1.65; }
+  .ai-text strong { color: #fff; }
+  .ai-bullets { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .ai-bullet { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: #a5b4fc; }
+  .bullet-dot { width: 5px; height: 5px; border-radius: 50%; background: #818cf8; flex-shrink: 0; margin-top: 5px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="logo">mana<span>pigi</span></div>
+    <a class="nav-item active" href="#">🏠 Overview</a>
+    <a class="nav-item" href="#">↕ Transactions</a>
+    <a class="nav-item" href="#">📈 Trends</a>
+    <a class="nav-item" href="#">✨ Insights</a>
+    <div class="nav-sep"></div>
+    <a class="nav-item" href="#">📄 Import PDF</a>
+    <a class="nav-item" href="#">🏷 Categories</a>
+    <a class="nav-item" href="#">💳 Accounts</a>
+    <div class="avatar">
+      <div class="avatar-circle">A</div>
+      <div class="avatar-name">Adam</div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h1>Good morning, Adam 👋</h1>
+        <p>May 2026 · 16 days remaining</p>
+      </div>
+      <div class="top-actions">
+        <button class="btn-secondary">← Apr &nbsp;|&nbsp; Jun →</button>
+        <button class="btn-primary">+ Add expense</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-card highlight">
+        <div class="stat-label">Remaining</div>
+        <div class="stat-value">RM 3,890</div>
+        <div class="stat-badge">48% of income</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Income</div>
+        <div class="stat-value">RM 8,200</div>
+        <div class="stat-badge badge-neutral">Salary</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total spent</div>
+        <div class="stat-value">RM 4,310</div>
+        <div class="stat-badge badge-up">↑ 12% vs Apr</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Saved last 3mo</div>
+        <div class="stat-value">RM 11.2k</div>
+        <div class="stat-badge badge-down">↑ 8% avg</div>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="alert-strip">
+      <div class="alert danger"><span class="alert-icon">🔴</span> Shopping RM 680 — 257% above average</div>
+      <div class="alert warn"><span class="alert-icon">⚠️</span> Subscriptions RM 387/mo — 3 appear unused</div>
+    </div>
+
+    <!-- Grid -->
+    <div class="grid">
+      <!-- Categories -->
+      <div class="card">
+        <div class="card-title">Spending by category</div>
+        <div class="cat-list">
+          <div class="cat-item">
+            <div class="cat-dot" style="background:#6366f1;"></div>
+            <div class="cat-info">
+              <div class="cat-top"><div class="cat-name2">🏠 Rent</div><div class="cat-val">RM 1,800</div></div>
+              <div class="bar2-bg"><div class="bar2-fill" style="width:100%;background:#6366f1;"></div></div>
+            </div>
+          </div>
+          <div class="cat-item">
+            <div class="cat-dot" style="background:#22c55e;"></div>
+            <div class="cat-info">
+              <div class="cat-top"><div class="cat-name2">🍜 Food</div><div class="cat-val">RM 820</div></div>
+              <div class="bar2-bg"><div class="bar2-fill" style="width:82%;background:#22c55e;"></div></div>
+            </div>
+          </div>
+          <div class="cat-item">
+            <div class="cat-dot" style="background:#ef4444;"></div>
+            <div class="cat-info">
+              <div class="cat-top"><div class="cat-name2">🛒 Shopping <span class="over-tag">OVER</span></div><div class="cat-val">RM 680</div></div>
+              <div class="bar2-bg"><div class="bar2-fill" style="width:100%;background:#ef4444;"></div></div>
+            </div>
+          </div>
+          <div class="cat-item">
+            <div class="cat-dot" style="background:#f59e0b;"></div>
+            <div class="cat-info">
+              <div class="cat-top"><div class="cat-name2">📡 Subscriptions <span class="over-tag">OVER</span></div><div class="cat-val">RM 387</div></div>
+              <div class="bar2-bg"><div class="bar2-fill" style="width:100%;background:#f59e0b;"></div></div>
+            </div>
+          </div>
+          <div class="cat-item">
+            <div class="cat-dot" style="background:#06b6d4;"></div>
+            <div class="cat-info">
+              <div class="cat-top"><div class="cat-name2">🚗 Transport</div><div class="cat-val">RM 290</div></div>
+              <div class="bar2-bg"><div class="bar2-fill" style="width:72%;background:#06b6d4;"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trends -->
+      <div class="card">
+        <div class="card-title">Monthly spending trend</div>
+        <div class="trend-chart">
+          <div class="trend-month">
+            <div class="trend-val">3.6k</div>
+            <div class="trend-bar-wrap"><div class="trend-bar" style="height:55%;background:#e0e7ff;"></div></div>
+            <div class="trend-label">Dec</div>
+          </div>
+          <div class="trend-month">
+            <div class="trend-val">3.9k</div>
+            <div class="trend-bar-wrap"><div class="trend-bar" style="height:60%;background:#e0e7ff;"></div></div>
+            <div class="trend-label">Jan</div>
+          </div>
+          <div class="trend-month">
+            <div class="trend-val">4.1k</div>
+            <div class="trend-bar-wrap"><div class="trend-bar" style="height:63%;background:#e0e7ff;"></div></div>
+            <div class="trend-label">Feb</div>
+          </div>
+          <div class="trend-month">
+            <div class="trend-val">3.7k</div>
+            <div class="trend-bar-wrap"><div class="trend-bar" style="height:57%;background:#e0e7ff;"></div></div>
+            <div class="trend-label">Mar</div>
+          </div>
+          <div class="trend-month">
+            <div class="trend-val">3.8k</div>
+            <div class="trend-bar-wrap"><div class="trend-bar" style="height:59%;background:#e0e7ff;"></div></div>
+            <div class="trend-label">Apr</div>
+          </div>
+          <div class="trend-month">
+            <div class="trend-val">4.3k</div>
+            <div class="trend-bar-wrap"><div class="trend-bar" style="height:66%;background:#6366f1;border-radius:6px 6px 0 0;"></div></div>
+            <div class="trend-label" style="color:#6366f1;font-weight:600;">May</div>
+          </div>
+        </div>
+        <div style="margin-top:18px;padding-top:16px;border-top:1px solid #f1f5f9;">
+          <div style="font-size:11.5px;color:#94a3b8;margin-bottom:8px;">Category this month vs last</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <span style="font-size:11.5px;padding:3px 9px;border-radius:99px;background:#fee2e2;color:#ef4444;">🛒 +257%</span>
+            <span style="font-size:11.5px;padding:3px 9px;border-radius:99px;background:#fee2e2;color:#ef4444;">📡 +28%</span>
+            <span style="font-size:11.5px;padding:3px 9px;border-radius:99px;background:#dcfce7;color:#16a34a;">🍜 −3%</span>
+            <span style="font-size:11.5px;padding:3px 9px;border-radius:99px;background:#dcfce7;color:#16a34a;">🚗 −11%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right col -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <!-- Transactions -->
+        <div class="card">
+          <div class="card-title">Recent transactions</div>
+          <div class="txn2">
+            <div class="txn2-row">
+              <div class="txn2-icon" style="background:#f0fdf4;">🍔</div>
+              <div class="txn2-info"><div class="txn2-name">Grab Food</div><div class="txn2-sub">Today · Food</div></div>
+              <div class="txn2-amt neg">−RM 28</div>
+            </div>
+            <div class="txn2-row">
+              <div class="txn2-icon" style="background:#eff6ff;">💼</div>
+              <div class="txn2-info"><div class="txn2-name">Salary</div><div class="txn2-sub">May 1 · Income</div></div>
+              <div class="txn2-amt pos">+RM 8,200</div>
+            </div>
+            <div class="txn2-row">
+              <div class="txn2-icon" style="background:#fef3c7;">🛒</div>
+              <div class="txn2-info"><div class="txn2-name">IKEA</div><div class="txn2-sub">May 7 · Shopping</div></div>
+              <div class="txn2-amt neg">−RM 340</div>
+            </div>
+            <div class="txn2-row">
+              <div class="txn2-icon" style="background:#f5f3ff;">📡</div>
+              <div class="txn2-info"><div class="txn2-name">Unifi</div><div class="txn2-sub">May 9 · Bills</div></div>
+              <div class="txn2-amt neg">−RM 99</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI -->
+        <div class="ai-card">
+          <div class="ai-label">✨ AI Recommendation</div>
+          <div class="ai-text">You have <strong>RM 3,890 left</strong>. After CC payment, here's where to put the rest:</div>
+          <div class="ai-bullets">
+            <div class="ai-bullet"><div class="bullet-dot"></div>Clear CC balance: RM 3,140</div>
+            <div class="ai-bullet"><div class="bullet-dot"></div>ASB top-up: RM 500 (4.0% p.a.)</div>
+            <div class="ai-bullet"><div class="bullet-dot"></div>Keep RM 250 as buffer</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

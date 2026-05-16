@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option A — Minimal</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: #f9f9f7; color: #1a1a1a; min-height: 100vh; }
+
+  .shell { display: flex; height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { width: 220px; background: #fff; border-right: 1px solid #ebebeb; padding: 32px 24px; display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .logo { font-size: 15px; font-weight: 700; color: #1a1a1a; margin-bottom: 32px; letter-spacing: -0.3px; }
+  .logo span { color: #2e7d4f; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; font-size: 13.5px; color: #666; cursor: pointer; transition: all 0.15s; text-decoration: none; }
+  .nav-item:hover { background: #f5f5f3; color: #1a1a1a; }
+  .nav-item.active { background: #f0f7f3; color: #2e7d4f; font-weight: 500; }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+  .nav-section { font-size: 10.5px; color: #bbb; text-transform: uppercase; letter-spacing: 0.8px; margin: 20px 0 8px 10px; }
+
+  /* Main */
+  .main { flex: 1; overflow-y: auto; padding: 40px 48px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
+  .header-left h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .header-left p { font-size: 13px; color: #999; margin-top: 3px; }
+  .month-nav { display: flex; align-items: center; gap: 12px; }
+  .month-nav button { background: none; border: 1px solid #e0e0e0; width: 30px; height: 30px; border-radius: 6px; cursor: pointer; font-size: 13px; color: #666; display: flex; align-items: center; justify-content: center; }
+  .month-nav span { font-size: 13px; font-weight: 500; color: #444; }
+  .btn-add { background: #2e7d4f; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+
+  /* Hero numbers */
+  .hero { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: #ebebeb; border-radius: 12px; overflow: hidden; margin-bottom: 32px; }
+  .hero-cell { background: #fff; padding: 28px 28px; }
+  .hero-label { font-size: 11.5px; color: #999; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+  .hero-value { font-size: 30px; font-weight: 700; letter-spacing: -1px; }
+  .hero-value.income { color: #1a1a1a; }
+  .hero-value.expenses { color: #1a1a1a; }
+  .hero-value.remaining { color: #2e7d4f; }
+  .hero-sub { font-size: 12px; color: #bbb; margin-top: 6px; }
+  .progress-wrap { margin-top: 10px; height: 3px; background: #f0f0f0; border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #2e7d4f; border-radius: 99px; }
+
+  /* Flags */
+  .flags { display: flex; gap: 10px; margin-bottom: 32px; flex-wrap: wrap; }
+  .flag { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; font-size: 12.5px; }
+  .flag.red { background: #fff5f5; color: #c0392b; border: 1px solid #fdd; }
+  .flag.yellow { background: #fffbf0; color: #b7791f; border: 1px solid #fdeaa7; }
+  .flag-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .flag.red .flag-dot { background: #e53e3e; }
+  .flag.yellow .flag-dot { background: #d69e2e; }
+
+  /* Two column */
+  .two-col { display: grid; grid-template-columns: 1fr 380px; gap: 24px; }
+
+  /* Categories */
+  .section-title { font-size: 12px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 16px; }
+  .category-list { display: flex; flex-direction: column; gap: 14px; }
+  .cat-row { display: flex; flex-direction: column; gap: 6px; }
+  .cat-meta { display: flex; justify-content: space-between; align-items: center; }
+  .cat-name { font-size: 13.5px; font-weight: 500; display: flex; align-items: center; gap: 7px; }
+  .cat-icon { font-size: 14px; }
+  .cat-amounts { font-size: 12px; color: #999; }
+  .cat-amounts strong { color: #333; }
+  .bar-bg { height: 5px; background: #f0f0f0; border-radius: 99px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 99px; transition: width 0.3s; }
+
+  /* Right panel */
+  .right-panel { display: flex; flex-direction: column; gap: 24px; }
+  .panel-box { background: #fff; border-radius: 12px; padding: 24px; border: 1px solid #ebebeb; }
+  .txn-list { display: flex; flex-direction: column; }
+  .txn-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f5f5f3; }
+  .txn-row:last-child { border-bottom: none; }
+  .txn-left { display: flex; flex-direction: column; gap: 2px; }
+  .txn-merchant { font-size: 13px; font-weight: 500; }
+  .txn-meta { font-size: 11.5px; color: #bbb; }
+  .txn-amount { font-size: 13px; font-weight: 600; }
+  .txn-amount.expense { color: #1a1a1a; }
+  .txn-amount.income { color: #2e7d4f; }
+
+  /* Insight box */
+  .insight-box { background: #f0f7f3; border-radius: 12px; padding: 20px 24px; border: 1px solid #d4eadc; }
+  .insight-label { font-size: 11px; font-weight: 600; color: #2e7d4f; text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .insight-text { font-size: 13px; color: #2d4a36; line-height: 1.6; }
+  .insight-text strong { font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">mana<span>pigi</span></div>
+    <a class="nav-item active" href="#"><span class="nav-icon">◻</span> Overview</a>
+    <a class="nav-item" href="#"><span class="nav-icon">↕</span> Transactions</a>
+    <a class="nav-item" href="#"><span class="nav-icon">↗</span> Trends</a>
+    <a class="nav-item" href="#"><span class="nav-icon">✦</span> Insights</a>
+    <div class="nav-section">Import</div>
+    <a class="nav-item" href="#"><span class="nav-icon">📄</span> Statement</a>
+    <div class="nav-section">Settings</div>
+    <a class="nav-item" href="#"><span class="nav-icon">⚙</span> Categories</a>
+    <a class="nav-item" href="#"><span class="nav-icon">◎</span> Accounts</a>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="header">
+      <div class="header-left">
+        <h1>May 2026</h1>
+        <p>Personal finance overview</p>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <div class="month-nav">
+          <button>←</button>
+          <span>May 2026</span>
+          <button>→</button>
+        </div>
+        <button class="btn-add">+ Add expense</button>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-cell">
+        <div class="hero-label">Income</div>
+        <div class="hero-value income">RM 8,200</div>
+        <div class="hero-sub">Salary · May 1</div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Spent</div>
+        <div class="hero-value expenses">RM 4,310</div>
+        <div class="hero-sub">52% of income</div>
+        <div class="progress-wrap"><div class="progress-fill" style="width:52%;background:#e5e5e5;"></div></div>
+      </div>
+      <div class="hero-cell">
+        <div class="hero-label">Remaining</div>
+        <div class="hero-value remaining">RM 3,890</div>
+        <div class="hero-sub">48% of income</div>
+        <div class="progress-wrap"><div class="progress-fill" style="width:48%;"></div></div>
+      </div>
+    </div>
+
+    <!-- Flags -->
+    <div class="flags">
+      <div class="flag red"><div class="flag-dot"></div> Shopping up 257% vs last month — RM 680 spent</div>
+      <div class="flag yellow"><div class="flag-dot"></div> 12 active subscriptions · RM 387/month</div>
+    </div>
+
+    <!-- Two column -->
+    <div class="two-col">
+      <div>
+        <div class="section-title">Categories</div>
+        <div class="category-list">
+          <div class="cat-row">
+            <div class="cat-meta">
+              <div class="cat-name"><span class="cat-icon">🏠</span> Rent</div>
+              <div class="cat-amounts"><strong>RM 1,800</strong> / RM 1,800</div>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:100%;background:#2e7d4f;"></div></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-meta">
+              <div class="cat-name"><span class="cat-icon">🍜</span> Food</div>
+              <div class="cat-amounts"><strong>RM 820</strong> / RM 1,000</div>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:82%;background:#2e7d4f;"></div></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-meta">
+              <div class="cat-name"><span class="cat-icon">🛒</span> Shopping</div>
+              <div class="cat-amounts"><strong>RM 680</strong> / RM 300</div>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:100%;background:#e53e3e;"></div></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-meta">
+              <div class="cat-name"><span class="cat-icon">📡</span> Subscriptions</div>
+              <div class="cat-amounts"><strong>RM 387</strong> / RM 300</div>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:100%;background:#d69e2e;"></div></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-meta">
+              <div class="cat-name"><span class="cat-icon">🚗</span> Transport</div>
+              <div class="cat-amounts"><strong>RM 290</strong> / RM 400</div>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:72%;background:#2e7d4f;"></div></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-meta">
+              <div class="cat-name"><span class="cat-icon">⚕️</span> Health</div>
+              <div class="cat-amounts"><strong>RM 333</strong> / RM 400</div>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:83%;background:#2e7d4f;"></div></div>
+          </div>
+        </div>
+
+        <!-- Insight -->
+        <div class="insight-box" style="margin-top:28px;">
+          <div class="insight-label">✦ AI Insight</div>
+          <div class="insight-text">You have <strong>RM 3,890 remaining</strong>. After clearing your CC balance of RM 3,140, put RM 500 into ASB and keep RM 250 as buffer. Your shopping spike this month was driven by IKEA (RM 340) — one-off or new pattern?</div>
+        </div>
+      </div>
+
+      <!-- Right -->
+      <div class="right-panel">
+        <div class="panel-box">
+          <div class="section-title">Recent transactions</div>
+          <div class="txn-list">
+            <div class="txn-row">
+              <div class="txn-left">
+                <div class="txn-merchant">Grab Food</div>
+                <div class="txn-meta">Today · Food</div>
+              </div>
+              <div class="txn-amount expense">−RM 28</div>
+            </div>
+            <div class="txn-row">
+              <div class="txn-left">
+                <div class="txn-merchant">Salary</div>
+                <div class="txn-meta">May 1 · Income</div>
+              </div>
+              <div class="txn-amount income">+RM 8,200</div>
+            </div>
+            <div class="txn-row">
+              <div class="txn-left">
+                <div class="txn-merchant">IKEA</div>
+                <div class="txn-meta">May 7 · Shopping</div>
+              </div>
+              <div class="txn-amount expense">−RM 340</div>
+            </div>
+            <div class="txn-row">
+              <div class="txn-left">
+                <div class="txn-merchant">Unifi</div>
+                <div class="txn-meta">May 9 · Bills</div>
+              </div>
+              <div class="txn-amount expense">−RM 99</div>
+            </div>
+            <div class="txn-row">
+              <div class="txn-left">
+                <div class="txn-merchant">Shell</div>
+                <div class="txn-meta">May 12 · Transport</div>
+              </div>
+              <div class="txn-amount expense">−RM 85</div>
+            </div>
+            <div class="txn-row">
+              <div class="txn-left">
+                <div class="txn-merchant">Guardian</div>
+                <div class="txn-meta">May 13 · Health</div>
+              </div>
+              <div class="txn-amount expense">−RM 47</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
