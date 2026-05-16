@@ -1,9 +1,127 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Accommodation, AccommodationRoom, BudgetCategory, BudgetItem, Destination } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 import DatePicker from '@/components/ui/DatePicker'
+import type { AreaInsight } from '@/app/api/area-insights/route'
+
+const PRICE_TIER: Record<string, string> = { budget: '💸', mid: '💳', luxury: '💎' }
+
+function AreaInsightsPanel({ destinations }: { destinations: Destination[] }) {
+  const dests = destinations.filter((d) => d.name)
+  const [selectedId, setSelectedId] = useState<string>(dests[0]?.id ?? '')
+  const [insights, setInsights] = useState<AreaInsight[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+
+  const selected = dests.find((d) => d.id === selectedId) ?? dests[0]
+
+  const fetchInsights = async (dest: Destination) => {
+    setLoading(true)
+    setError(null)
+    setInsights(null)
+    try {
+      const params = new URLSearchParams({ city: dest.name })
+      if (dest.country) params.set('country', dest.country)
+      const res = await fetch(`/api/area-insights?${params}`)
+      if (!res.ok) throw new Error(await res.text())
+      setInsights(await res.json())
+    } catch {
+      setError('Could not load insights. Try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggle = () => {
+    if (!open) {
+      setOpen(true)
+      if (!insights && selected) fetchInsights(selected)
+    } else {
+      setOpen(false)
+    }
+  }
+
+  const changeDest = (id: string) => {
+    setSelectedId(id)
+    const dest = dests.find((d) => d.id === id)
+    if (dest) { setInsights(null); fetchInsights(dest) }
+  }
+
+  if (dests.length === 0) return null
+
+  return (
+    <div className="border border-border rounded-xl bg-card overflow-hidden">
+      <button
+        onClick={toggle}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-accent-light/20 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-accent">✦ AI Insights</span>
+          <span className="text-border">·</span>
+          <span className="text-sm font-medium text-ink">Best areas to stay</span>
+        </div>
+        <span className="font-mono text-xs text-muted">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-border px-4 py-3 space-y-3">
+          {dests.length > 1 && (
+            <div className="flex gap-2 flex-wrap">
+              {dests.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => changeDest(d.id)}
+                  className={`font-mono text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    d.id === selectedId
+                      ? 'bg-accent text-cream border-accent'
+                      : 'border-border text-muted hover:border-accent hover:text-accent'
+                  }`}
+                >
+                  {d.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {loading && (
+            <div className="flex items-center gap-2 py-4 justify-center">
+              <span className="font-mono text-xs text-muted animate-pulse">Asking Claude for local insights…</span>
+            </div>
+          )}
+
+          {error && (
+            <p className="font-mono text-xs text-red-500 py-2">{error}</p>
+          )}
+
+          {insights && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {insights.map((area) => (
+                <div key={area.name} className="border border-border rounded-lg p-3 space-y-1.5 bg-cream/50">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-sm text-ink">{area.name}</p>
+                    <span title={area.price_tier}>{PRICE_TIER[area.price_tier] ?? ''}</span>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {area.vibe.map((v) => (
+                      <span key={v} className="font-mono text-[10px] bg-accent-light text-accent border border-accent/20 px-1.5 py-0.5 rounded-full">
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted leading-relaxed">{area.best_for}</p>
+                  <p className="font-mono text-[10px] text-muted border-t border-border pt-1.5 mt-1">💡 {area.tip}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const TYPES = ['hotel', 'airbnb', 'hostel', 'guesthouse', 'other'] as const
 
@@ -362,6 +480,8 @@ export default function StayTab({ tripId, accommodations, destinations, budgetCa
 
   return (
     <div className="space-y-4">
+      <AreaInsightsPanel destinations={destinations} />
+
       {accommodations.length === 0 && !adding && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="font-mono text-sm text-muted">No accommodations yet</p>
