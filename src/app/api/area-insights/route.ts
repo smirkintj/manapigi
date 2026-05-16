@@ -23,10 +23,7 @@ export async function GET(req: NextRequest) {
 
   if (!city) return NextResponse.json({ error: 'city required' }, { status: 400 })
 
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 503 })
-  }
+  const apiKey = process.env.GEMINI_API_KEY ?? 'AIzaSyCUXx_9Bqbaw978aKlR5zG-8ZRdvfhfpdQ'
 
   const key = `${city},${country ?? ''}`.toLowerCase()
   const now = Date.now()
