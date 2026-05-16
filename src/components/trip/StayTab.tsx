@@ -26,6 +26,7 @@ function AreaInsightsPanel({ destinations }: { destinations: Destination[] }) {
       const params = new URLSearchParams({ city: dest.name })
       if (dest.country) params.set('country', dest.country)
       const res = await fetch(`/api/area-insights?${params}`)
+      if (res.status === 503) { setError('Add ANTHROPIC_API_KEY to .env.local to enable AI insights.'); return }
       if (!res.ok) throw new Error(await res.text())
       setInsights(await res.json())
     } catch {
