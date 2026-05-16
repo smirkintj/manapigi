@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const cache: Record<string, { data: AreaInsight[]; ts: number }> = {}
 
@@ -12,7 +12,6 @@ export type AreaInsight = {
 }
 
 function extractJson(raw: string): string {
-  // Strip markdown code fences if Claude wraps the response
   const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
   return match ? match[1].trim() : raw.trim()
 }
@@ -24,9 +23,9 @@ export async function GET(req: NextRequest) {
 
   if (!city) return NextResponse.json({ error: 'city required' }, { status: 400 })
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
-    return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 503 })
+    return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 503 })
   }
 
   const key = `${city},${country ?? ''}`.toLowerCase()
@@ -36,16 +35,11 @@ export async function GET(req: NextRequest) {
   }
 
   const location = country ? `${city}, ${country}` : city
-  const client = new Anthropic({ apiKey })
+  const genAI = new GoogleGenerativeAI(apiKey)
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
   try {
-    const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: `You are a travel expert. For the city "${location}", suggest 4–6 distinct neighborhoods or areas where tourists typically stay. Return ONLY a raw JSON array — no markdown, no code fences, no explanation:
+    const prompt = `You are a travel expert. For the city "${location}", suggest 4–6 distinct neighborhoods or areas where tourists typically stay. Return ONLY a raw JSON array — no markdown, no code fences, no explanation:
 
 [
   {
@@ -57,12 +51,10 @@ export async function GET(req: NextRequest) {
   }
 ]
 
-price_tier must be one of: budget, mid, luxury.`,
-        },
-      ],
-    })
+price_tier must be one of: budget, mid, luxury.`
 
-    const raw = message.content[0].type === 'text' ? message.content[0].text : ''
+    const result = await model.generateContent(prompt)
+    const raw = result.response.text()
     const insights: AreaInsight[] = JSON.parse(extractJson(raw))
     cache[key] = { data: insights, ts: now }
     return NextResponse.json(insights)
