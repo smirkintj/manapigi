@@ -9,6 +9,12 @@ import {
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
+export const aiCache = pgTable('ai_cache', {
+  key: text('key').primaryKey(),
+  data: text('data').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+})
+
 export const trips = pgTable('trips', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),

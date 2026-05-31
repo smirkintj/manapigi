@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/db'
+import { aiCache } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? 'sk-f8bde78e0e4c4261a5e8baff1617aa03'
 const DEEPSEEK_BASE = 'https://api.deepseek.com'
-
-const cache: Record<string, { data: AreaInsight[]; ts: number }> = {}
+const TTL_MS = 6 * 60 * 60 * 1000 // 6 hours
 
 export type AreaInsight = {
   name: string
@@ -25,11 +27,15 @@ export async function GET(req: NextRequest) {
 
   if (!city) return NextResponse.json({ error: 'city required' }, { status: 400 })
 
-  const key = `${city},${country ?? ''}`.toLowerCase()
-  const now = Date.now()
-  if (cache[key] && now - cache[key].ts < 6 * 60 * 60 * 1000) {
-    return NextResponse.json(cache[key].data)
-  }
+  const cacheKey = `area-insights:${city.toLowerCase()},${(country ?? '').toLowerCase()}`
+
+  // Check DB cache
+  try {
+    const [row] = await db.select().from(aiCache).where(eq(aiCache.key, cacheKey))
+    if (row && new Date(row.expiresAt) > new Date()) {
+      return NextResponse.json(JSON.parse(row.data))
+    }
+  } catch { /* cache miss is fine */ }
 
   const location = country ? `${city}, ${country}` : city
 
@@ -70,7 +76,14 @@ price_tier must be one of: budget, mid, luxury.`,
     const data = await res.json()
     const raw = data.choices?.[0]?.message?.content ?? ''
     const insights: AreaInsight[] = JSON.parse(extractJson(raw))
-    cache[key] = { data: insights, ts: now }
+
+    // Upsert to DB cache
+    const expiresAt = new Date(Date.now() + TTL_MS)
+    try {
+      await db.insert(aiCache).values({ key: cacheKey, data: JSON.stringify(insights), expiresAt })
+        .onConflictDoUpdate({ target: aiCache.key, set: { data: JSON.stringify(insights), expiresAt } })
+    } catch { /* cache write failure is non-fatal */ }
+
     return NextResponse.json(insights)
   } catch (err) {
     console.error('area-insights error:', err)

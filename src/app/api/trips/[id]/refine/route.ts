@@ -15,7 +15,7 @@ function extractJson(raw: string): string {
 
 type RefinementChange =
   | { type: 'update_trip'; data: { name?: string; description?: string; startDate?: string; endDate?: string; coverEmoji?: string } }
-  | { type: 'add_destination'; data: { name: string; country: string; arrival: string | null; departure: string | null; transportMode: string | null; itinerary: { day: number | null; time: string | null; title: string; description: string | null }[] } }
+  | { type: 'add_destination'; data: { name: string; country: string; arrival: string | null; arrivalTime: string | null; departure: string | null; departureTime: string | null; transportMode: string | null; itinerary: { day: number | null; time: string | null; title: string; description: string | null }[] } }
   | { type: 'add_itinerary_items'; destinationName: string; items: { day: number | null; time: string | null; title: string; description: string | null }[] }
   | { type: 'add_budget_items'; categoryName: string; items: { label: string; amount: number; currency: string; perPax: boolean }[] }
   | { type: 'add_travelers'; names: string[] }
@@ -77,19 +77,22 @@ Output ONLY valid JSON with this structure (no markdown, no explanation):
   "summary": "One sentence describing what you changed",
   "changes": [
     { "type": "update_trip", "data": { "name": "...", "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD", "description": "..." } },
-    { "type": "add_destination", "data": { "name": "City", "country": "Country", "arrival": "YYYY-MM-DD", "departure": "YYYY-MM-DD", "transportMode": "flight|train|bus|driving|ferry|walking", "itinerary": [{ "day": 1, "time": "09:00", "title": "Activity", "description": "Detail" }] } },
-    { "type": "add_itinerary_items", "destinationName": "Exact city name from the trip", "items": [{ "day": 2, "time": "19:00", "title": "Activity", "description": "Detail" }] },
-    { "type": "add_budget_items", "categoryName": "Exact category name or new one", "items": [{ "label": "Item", "amount": 100, "currency": "${trip.currency}", "perPax": false }] },
+    { "type": "add_destination", "data": { "name": "City", "country": "Country", "arrival": "YYYY-MM-DD", "arrivalTime": "HH:MM", "departure": "YYYY-MM-DD", "departureTime": "HH:MM", "transportMode": "flight|train|bus|driving|ferry|walking", "itinerary": [{ "day": 1, "time": "09:00", "title": "Specific venue name", "description": "Exact venue, train line + stop name + fare, entrance fee, insider tip" }] } },
+    { "type": "add_itinerary_items", "destinationName": "Exact city name from the trip", "items": [{ "day": 2, "time": "19:00", "title": "Specific venue name", "description": "Exact venue, how to get there (train line, stop, fare), cost/entrance fee, tip" }] },
+    { "type": "add_budget_items", "categoryName": "Exact category name or new one", "items": [{ "label": "Specific item (e.g. Shinkansen Tokyo→Kyoto)", "amount": 100, "currency": "${trip.currency}", "perPax": false }] },
     { "type": "add_travelers", "names": ["Name"] }
   ]
 }
 
-Rules:
+Critical rules:
+- ALWAYS include arrival AND departure dates (YYYY-MM-DD) for every new destination — the weather widget depends on this
+- ALWAYS include arrivalTime and departureTime (HH:MM) for every new destination
+- Itinerary descriptions must name specific venues, the exact train line and stop, and the cost/fare — never generic descriptions
+- Budget items must be specific per-leg (not "transport in Tokyo" but "JR Yamanote Line day pass" or "Narita Express NRT→Shinjuku")
 - Only include change types that are needed for the request
 - For add_itinerary_items, destinationName must exactly match a destination already in the trip
 - Never remove or modify existing items — only add new ones (except update_trip which can update top-level fields)
-- For update_trip, only include fields that should change
-- Keep changes focused and realistic`
+- For update_trip, only include fields that should change`
 
   // ── Call DeepSeek ────────────────────────────────────────────────────────────
   let result: RefinementResult
@@ -165,7 +168,8 @@ Rules:
 
         const [dest] = await db.insert(destinations).values({
           tripId: id, name: d.name, country: d.country ?? null,
-          lat, lng, arrival: d.arrival ?? null, departure: d.departure ?? null,
+          lat, lng, arrival: d.arrival ?? null, arrivalTime: d.arrivalTime ?? null,
+          departure: d.departure ?? null, departureTime: d.departureTime ?? null,
           transportMode: d.transportMode ?? null, order: Number(c),
         }).returning()
 

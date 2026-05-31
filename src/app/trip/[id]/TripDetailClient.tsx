@@ -1,11 +1,71 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Trip } from '@/lib/types'
 import DestinationSidebar from '@/components/trip/DestinationSidebar'
 import TripTabs from '@/components/trip/TripTabs'
+
+type DestinationTip = { icon: string; text: string }
+type TipsEntry = { destination: string; tips: DestinationTip[] }
+
+function TipsPanel({ tripId, onClose }: { tripId: string; onClose: () => void }) {
+  const [tips, setTips] = useState<TipsEntry[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch(`/api/trips/${tripId}/tips`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setTips(data)
+        else setError(data.error ?? 'Failed to load tips')
+      })
+      .catch(() => setError('Network error'))
+      .finally(() => setLoading(false))
+  }, [tripId])
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-ink/10 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-card border-l border-border shadow-xl w-full max-w-sm flex flex-col h-full z-10">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+          <div>
+            <h2 className="font-serif text-lg text-ink">Travel Tips</h2>
+            <p className="font-mono text-[10px] text-muted mt-0.5">AI-powered insights for your stops</p>
+          </div>
+          <button onClick={onClose} className="text-muted hover:text-ink text-xl leading-none">×</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <span className="w-5 h-5 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+              <p className="font-mono text-xs text-muted">Gathering tips…</p>
+            </div>
+          )}
+          {error && (
+            <p className="font-mono text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+          )}
+          {tips?.map((entry) => (
+            <div key={entry.destination}>
+              <h3 className="font-serif text-base text-ink mb-2">{entry.destination}</h3>
+              <div className="space-y-2">
+                {entry.tips.map((tip, i) => (
+                  <div key={i} className="flex gap-2.5 text-sm">
+                    <span className="shrink-0 text-base leading-snug">{tip.icon}</span>
+                    <p className="text-ink/80 leading-snug">{tip.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const REFINE_EXAMPLES = [
   'Add a day trip to Nikko from Tokyo',
@@ -171,6 +231,7 @@ export default function TripDetailClient({ initialTrip }: { initialTrip: Trip })
   const [name, setName] = useState(trip.name)
   const [copied, setCopied] = useState(false)
   const [refineOpen, setRefineOpen] = useState(false)
+  const [tipsOpen, setTipsOpen] = useState(false)
   const router = useRouter()
 
   const refreshTrip = async () => {
@@ -246,6 +307,12 @@ export default function TripDetailClient({ initialTrip }: { initialTrip: Trip })
 
           <div className="ml-auto flex items-center gap-2">
             <button
+              onClick={() => setTipsOpen(true)}
+              className="font-mono text-xs border border-border rounded-lg px-3 py-1.5 text-muted hover:border-accent hover:text-accent transition-colors"
+            >
+              💡 Tips
+            </button>
+            <button
               onClick={() => setRefineOpen(true)}
               className="font-mono text-xs border border-accent/40 rounded-lg px-3 py-1.5 text-accent hover:bg-accent hover:text-cream transition-colors"
             >
@@ -288,6 +355,13 @@ export default function TripDetailClient({ initialTrip }: { initialTrip: Trip })
           tripId={trip.id}
           onClose={() => setRefineOpen(false)}
           onApplied={refreshTrip}
+        />
+      )}
+
+      {tipsOpen && (
+        <TipsPanel
+          tripId={trip.id}
+          onClose={() => setTipsOpen(false)}
         />
       )}
     </div>
