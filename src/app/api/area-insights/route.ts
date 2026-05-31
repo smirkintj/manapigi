@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? 'sk-f8bde78e0e4c4261a5e8baff1617aa03'
+const DEEPSEEK_BASE = 'https://api.deepseek.com'
 
 const cache: Record<string, { data: AreaInsight[]; ts: number }> = {}
 
@@ -23,8 +25,6 @@ export async function GET(req: NextRequest) {
 
   if (!city) return NextResponse.json({ error: 'city required' }, { status: 400 })
 
-  const apiKey = process.env.GEMINI_API_KEY ?? 'AIzaSyCUXx_9Bqbaw978aKlR5zG-8ZRdvfhfpdQ'
-
   const key = `${city},${country ?? ''}`.toLowerCase()
   const now = Date.now()
   if (cache[key] && now - cache[key].ts < 6 * 60 * 60 * 1000) {
@@ -32,11 +32,20 @@ export async function GET(req: NextRequest) {
   }
 
   const location = country ? `${city}, ${country}` : city
-  const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
   try {
-    const prompt = `You are a travel expert. For the city "${location}", suggest 4–6 distinct neighborhoods or areas where tourists typically stay. Return ONLY a raw JSON array — no markdown, no code fences, no explanation:
+    const res = await fetch(`${DEEPSEEK_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          {
+            role: 'user',
+            content: `You are a travel expert. For the city "${location}", suggest 4–6 distinct neighborhoods or areas where tourists typically stay. Return ONLY a raw JSON array — no markdown, no code fences, no explanation:
 
 [
   {
@@ -48,10 +57,18 @@ export async function GET(req: NextRequest) {
   }
 ]
 
-price_tier must be one of: budget, mid, luxury.`
+price_tier must be one of: budget, mid, luxury.`,
+          },
+        ],
+        temperature: 0.5,
+        max_tokens: 1024,
+      }),
+      signal: AbortSignal.timeout(30000),
+    })
 
-    const result = await model.generateContent(prompt)
-    const raw = result.response.text()
+    if (!res.ok) throw new Error(`DeepSeek ${res.status}`)
+    const data = await res.json()
+    const raw = data.choices?.[0]?.message?.content ?? ''
     const insights: AreaInsight[] = JSON.parse(extractJson(raw))
     cache[key] = { data: insights, ts: now }
     return NextResponse.json(insights)
