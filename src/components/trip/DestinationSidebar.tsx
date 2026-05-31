@@ -21,6 +21,64 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
+function TravelerRow({ traveler, onUpdate }: { traveler: Traveler; onUpdate: () => void }) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(traveler.name)
+
+  const save = async () => {
+    if (!name.trim()) { setName(traveler.name); setEditing(false); return }
+    await fetch(`/api/travelers/${traveler.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    })
+    setEditing(false)
+    onUpdate()
+  }
+
+  const remove = async () => {
+    await fetch(`/api/travelers/${traveler.id}`, { method: 'DELETE' })
+    onUpdate()
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <div className="w-5 h-5 rounded-full bg-accent-light border border-accent/30 flex items-center justify-center shrink-0">
+          <span className="font-mono text-[9px] text-accent font-bold">{name[0]?.toUpperCase() ?? '?'}</span>
+        </div>
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') save()
+            if (e.key === 'Escape') { setName(traveler.name); setEditing(false) }
+          }}
+          className="flex-1 border border-accent rounded px-1.5 py-0.5 text-sm bg-card focus:outline-none"
+        />
+        <button onClick={() => { setName(traveler.name); setEditing(false) }} className="text-muted text-sm px-0.5">×</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-between group">
+      <div className="flex items-center gap-2">
+        <div className="w-5 h-5 rounded-full bg-accent-light border border-accent/30 flex items-center justify-center shrink-0">
+          <span className="font-mono text-[9px] text-accent font-bold">{traveler.name[0].toUpperCase()}</span>
+        </div>
+        <span className="text-sm text-ink">{traveler.name}</span>
+      </div>
+      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-all">
+        <button onClick={() => setEditing(true)} className="text-muted hover:text-ink text-[10px] font-mono">edit</button>
+        <button onClick={remove} className="text-muted hover:text-red-500 text-sm">×</button>
+      </div>
+    </div>
+  )
+}
+
 function TravelersSection({
   tripId,
   travelers,
@@ -46,32 +104,12 @@ function TravelersSection({
     onUpdate()
   }
 
-  const remove = async (id: string) => {
-    await fetch(`/api/travelers/${id}`, { method: 'DELETE' })
-    onUpdate()
-  }
-
   return (
     <div className="px-4 py-3 border-t border-border shrink-0">
       <span className="font-mono text-xs text-muted uppercase tracking-wider">People</span>
-      <div className="mt-2 space-y-1">
+      <div className="mt-2 space-y-1.5">
         {travelers.map((t) => (
-          <div key={t.id} className="flex items-center justify-between group">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-accent-light border border-accent/30 flex items-center justify-center shrink-0">
-                <span className="font-mono text-[9px] text-accent font-bold">
-                  {t.name[0].toUpperCase()}
-                </span>
-              </div>
-              <span className="text-sm text-ink">{t.name}</span>
-            </div>
-            <button
-              onClick={() => remove(t.id)}
-              className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-500 text-sm transition-all"
-            >
-              ×
-            </button>
-          </div>
+          <TravelerRow key={t.id} traveler={t} onUpdate={onUpdate} />
         ))}
       </div>
 
