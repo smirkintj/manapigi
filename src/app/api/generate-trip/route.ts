@@ -147,7 +147,7 @@ Critical rules:
           { role: 'user', content: prompt },
         ],
         temperature: 0.7,
-        max_tokens: 8192,
+        max_tokens: 4096,
       }),
       signal: AbortSignal.timeout(90000),
     })
