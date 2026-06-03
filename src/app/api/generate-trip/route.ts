@@ -6,7 +6,7 @@ import {
 } from '@/db/schema'
 import { nanoid } from 'nanoid'
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? 'sk-f8bde78e0e4c4261a5e8baff1617aa03'
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
 const DEEPSEEK_BASE = 'https://api.deepseek.com'
 const CAT_COLORS = ['#2d5a3d', '#5a2d3d', '#2d3d5a', '#5a4e2d', '#4a2d5a', '#2d5a4e', '#5a3d2d']
 
@@ -60,6 +60,7 @@ function extractJson(raw: string): string {
 export async function POST(req: Request) {
   const { prompt, currency = 'MYR' } = await req.json()
   if (!prompt?.trim()) return NextResponse.json({ error: 'prompt required' }, { status: 400 })
+  if (!DEEPSEEK_API_KEY) return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
 
   const systemPrompt = `You are an expert travel planner. Generate a fully detailed, realistic trip plan as a single JSON object. Today's date is ${new Date().toISOString().slice(0, 10)}.
 

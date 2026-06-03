@@ -3,7 +3,7 @@ import { db } from '@/db'
 import { trips, destinations, aiCache } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? 'sk-f8bde78e0e4c4261a5e8baff1617aa03'
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
 const DEEPSEEK_BASE = 'https://api.deepseek.com'
 const TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 
@@ -33,6 +33,7 @@ export async function GET(
     with: { destinations: { orderBy: (d, { asc }) => [asc(d.order)] } },
   })
   if (!trip) return NextResponse.json({ error: 'Trip not found' }, { status: 404 })
+  if (!DEEPSEEK_API_KEY) return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
 
   const dests = trip.destinations ?? []
   if (!dests.length) return NextResponse.json([])

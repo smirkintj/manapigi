@@ -3,7 +3,7 @@ import { db } from '@/db'
 import { aiCache } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY ?? 'sk-f8bde78e0e4c4261a5e8baff1617aa03'
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY
 const DEEPSEEK_BASE = 'https://api.deepseek.com'
 const TTL_MS = 6 * 60 * 60 * 1000 // 6 hours
 
@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
   const country = searchParams.get('country')?.trim()
 
   if (!city) return NextResponse.json({ error: 'city required' }, { status: 400 })
+  if (!DEEPSEEK_API_KEY) return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
 
   const cacheKey = `area-insights:${city.toLowerCase()},${(country ?? '').toLowerCase()}`
 
